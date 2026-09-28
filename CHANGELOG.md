@@ -20,6 +20,19 @@ Without a readable registry the open goes ahead as before. Without `/proc`
 (anywhere but Linux), only processes that are certainly not a VS Code tab are
 counted.
 
+**A finished session no longer spins after you reopen it.** When Claude Code
+resumes a session whose background tasks never finished, it writes a notice
+("2 background shell command tasks didn't finish before the previous session
+ended") as a user record marked `queueTranscriptOnly`. The notice is for the
+record only: it is never sent to the model and no turn starts. It was read as a
+prompt the model was working on, so the row showed "Claude is working", and
+after 15 minutes "stalled". The tail reader now looks past such records to the
+turn before.
+
+**The tooltip on a spinning row stands still.** The state glyph and its tooltip
+are one element, and codicon's spin rule rotated the whole element, tooltip
+included. Now only the glyph turns.
+
 ## 0.8.0
 
 **The bell rings only while the ball is in your court.** The `🔔` count in the

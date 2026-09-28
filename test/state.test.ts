@@ -36,6 +36,16 @@ describe('classifyTail', () => {
     expect(classifyTail(system('away_summary'))).toBe('turn-ended');
     expect(classifyTail(system('local_command'))).toBe('turn-ended');
   });
+  it('looks past a transcript-only notice — a resume writes stale task notices that start no turn', () => {
+    // The shape Claude Code 2.1.283 appends when it resumes a session whose background tasks never finished.
+    const notice = user({ message: { role: 'user', content: '<task-notification>\n<status>stopped</status>\n</task-notification>' },
+                          origin: { kind: 'task-notification' }, promptSource: 'system', queueTranscriptOnly: true });
+    expect(classifyTail([assistant('end_turn'), system('turn_duration'), notice, sidecars].join('\n'))).toBe('turn-ended');
+    expect(classifyTail([assistant('tool_use'), notice].join('\n'))).toBe('awaiting-tool');
+    // a notice without the flag is delivered to the model, which answers it: that is a running turn
+    expect(classifyTail([assistant('end_turn'), user({ message: { content: '<task-notification>done</task-notification>' } })].join('\n')))
+      .toBe('awaiting-model');
+  });
   it('an interruption is its own verdict — Esc writes a user message, but nothing is generating', () => {
     expect(classifyTail(line({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } }))).toBe('interrupted');
     expect(classifyTail(line({ type: 'user', message: { content: '[Request interrupted by user for tool use]' } }))).toBe('interrupted');

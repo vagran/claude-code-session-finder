@@ -75,6 +75,13 @@ main:focus-visible { outline: none; }
   display: flex; align-items: center; justify-content: center;
   transition: color var(--dur) var(--ease);
 }
+/* The spinner turns its glyph, not the element: the element's ::after is its tooltip (.tip), which
+   codicon's own spin rule would turn with it. Same speed and easing as codicon-loading. */
+.row__icon.codicon-modifier-spin { animation: none !important; }
+.row__icon.codicon-modifier-spin::before {
+  display: inline-block;
+  animation: codicon-spin 1s cubic-bezier(0.53, 0.21, 0.29, 0.67) infinite;
+}
 /* Each line sizes on its own, so what line 2 holds (the actions' spot, the meter) never narrows the title. */
 .row__lines { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .row__line { display: flex; align-items: center; gap: var(--sp-2); height: 22px; min-width: 0; }

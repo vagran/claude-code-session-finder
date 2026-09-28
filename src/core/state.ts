@@ -40,7 +40,7 @@ const CONVERSATIONAL = new Set(['user', 'assistant', 'system']);
 const TURN_BOUNDARY = new Set(['turn_duration', 'away_summary', 'local_command']);
 
 interface Usage { input_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
-interface Rec { type?: string; subtype?: string; isSidechain?: boolean; timestamp?: string; message?: { stop_reason?: string | null; content?: unknown; usage?: Usage; model?: string } }
+interface Rec { type?: string; subtype?: string; isSidechain?: boolean; queueTranscriptOnly?: boolean; timestamp?: string; message?: { stop_reason?: string | null; content?: unknown; usage?: Usage; model?: string } }
 
 /** Esc in Claude Code writes this as a user message; the loop is over until you type again. */
 const INTERRUPTED = /^\s*\[Request interrupted by user(?: for tool use)?\]\s*$/;
@@ -75,6 +75,10 @@ export function readTailInfo(text: string): TailInfo {
     if (!raw || !raw.trim()) continue;
     const d = parse(raw);
     if (!d || !d.type || !CONVERSATIONAL.has(d.type) || d.isSidechain === true) continue;
+    // Written for the record only, never sent to the model: a resume delivers stale background-task
+    // notices this way ("2 background shell command tasks didn't finish before the previous session
+    // ended"). No turn starts, so it is not a prompt the model is working on — look past it.
+    if (d.queueTranscriptOnly === true) continue;
     if (d.type === 'assistant') {
       if (info.contextTokens === undefined) {
         const n = contextOf(d.message?.usage);

@@ -64,20 +64,20 @@ const ANYWAY_ACTION = 'Open Anyway';
  * Returns true when the open should go ahead. Runs in the window that will open the session:
  * only that window can tell its own tabs' processes from everyone else's.
  */
-export async function confirmNotRunningElsewhere(sessionId: string): Promise<boolean> {
+export async function confirmNotRunningElsewhere(sessionId: string, where: OpenWhere): Promise<boolean> {
   const log = openGuard.channel;
-  const conflict = openConflict(await readLiveProcesses(), sessionId, process.pid, openGuard.hasTabHere?.(sessionId) ?? false);
+  const conflict = openConflict(await readLiveProcesses(), sessionId, process.pid, where, openGuard.hasTabHere?.(sessionId) ?? false);
   if (conflict.kind === 'unknown') {
     log?.info(`open ${sessionId}: Claude Code process registry unreadable — opening without the check`);
     return true;
   }
   if (conflict.kind === 'none') return true;
-  const where = conflict.processes.map(p => describeProcess(p, process.pid)).join('; ');
-  log?.warn(`open ${sessionId}: already running in ${where}`);
+  const running = conflict.processes.map(p => describeProcess(p, process.pid)).join('; ');
+  log?.warn(`open ${sessionId}: already running in ${running}` + (where === 'right' ? ' (opening in the side panel)' : ''));
   const choice = await vscode.window.showWarningMessage(
     'This session is already running in another Claude Code process.',
     { modal: true, detail:
-      `It is open in ${where}.\n\n` +
+      `It is open in ${running}.\n\n` +
       'Opening it here starts a second process on the same transcript. The two fork it, and the next ' +
       'resume keeps only one branch: the other one\'s work disappears from the conversation.\n\n' +
       'Switch to where it runs instead, or read it in the Session View, which starts nothing.' },
@@ -110,7 +110,7 @@ export async function executePlan(plan: OpenPlan, ctx: vscode.ExtensionContext, 
     // F3: reveal-if-open / new-tab-otherwise is Claude Code's own behaviour.
     // L10: openCommands() passes the programmatic flag; without it every open here silently
     // reset the user's Claude Code preferred location to "panel".
-    if (!await confirmNotRunningElsewhere(plan.sessionId)) return;
+    if (!await confirmNotRunningElsewhere(plan.sessionId, where)) return;
     try {
       if (where === 'right') await noticeRightPanelOnce(ctx);
       await runOpen(plan.sessionId, where);

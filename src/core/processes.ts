@@ -94,24 +94,31 @@ export type OpenConflict =
   | { kind: 'elsewhere'; processes: ClaudeProcess[] };
 
 /**
- * Would opening `sessionId` in this window start a second process on it?
+ * Would opening `sessionId` in this window, `where` asked, start a second process on it?
  *
- * Claude Code's editor.open focuses a TAB of this window that already has the session
- * (`createPanel` looks it up among its tab panels) — but not the side panel: a session running
- * there gets a second process in a new tab. So a process of this window (its parent is this
- * extension host, `selfPid`: Claude Code spawns one child per tab or panel from the host both
- * extensions share) is no conflict only when `hasTabHere` — this window certainly has a Claude
- * Code tab of the session, which is what editor.open will focus. Any other live process is a
- * conflict. Where the parent is unknown (no /proc), a VS Code process may be this window's tab,
- * so only the ones that certainly are not — a terminal, a background session — count.
+ * Claude Code spawns one child per tab, and one per session its side panel holds, from the
+ * extension host both extensions share (`selfPid`). So a process whose parent is `selfPid` belongs
+ * to this window, and what Claude Code does with it depends on where the session is opened:
+ *  - in the side panel (`right`): no conflict. The panel switches to a session it already holds
+ *    (webview `activateSessionFromServer` finds it among its sessions and reuses its process), and
+ *    a session that has a tab here is focused there instead (editor.open, `sessionAlreadyOpenInPanel`).
+ *    The panel keeps every session it has shown alive, so this is the common case.
+ *  - in a tab: editor.open looks the session up among this window's TABS only (`createPanel`), so
+ *    it is no conflict only when `hasTabHere` — this window certainly has a tab of the session.
+ *    Held by the side panel, the session gets a second process in a new tab.
+ * Any process of another window, a terminal or a background session is a conflict either way.
+ * Where the parent is unknown (no /proc), a VS Code process may be this window's, so only the
+ * ones that certainly are not — a terminal, a background session — count.
  */
 export function openConflict(
-  live: Array<ClaudeProcess & { ppid?: number }> | null, sessionId: string, selfPid: number, hasTabHere = false,
+  live: Array<ClaudeProcess & { ppid?: number }> | null, sessionId: string, selfPid: number,
+  where: 'tab' | 'right' = 'tab', hasTabHere = false,
 ): OpenConflict {
   if (live === null) return { kind: 'unknown' };
   const counts = (p: ClaudeProcess & { ppid?: number }): boolean => {
     if (p.ppid === undefined) return p.entrypoint !== 'claude-vscode';
-    return p.ppid !== selfPid || !hasTabHere;
+    if (p.ppid !== selfPid) return true;
+    return where === 'tab' && !hasTabHere;
   };
   const others = live.filter(p => p.sessionId === sessionId && counts(p));
   return others.length ? { kind: 'elsewhere', processes: others } : { kind: 'none' };

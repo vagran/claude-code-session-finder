@@ -21,7 +21,7 @@ async function tryClaimPendingOpen(ctx: vscode.ExtensionContext): Promise<void> 
     // here must not become an unhandled rejection during activation.
     openSession: async (id, where) => {
       // The source window did not check: only this window can tell its own tabs' processes.
-      if (!await confirmNotRunningElsewhere(id)) return;
+      if (!await confirmNotRunningElsewhere(id, where)) return;
       try {
         await runOpen(id, where);
       } catch {

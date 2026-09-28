@@ -82,23 +82,33 @@ describe('openConflict', () => {
     expect(openConflict([vsc({ sessionId: 'other', ppid: 99 })], 's1', SELF)).toEqual({ kind: 'none' });
   });
   it("is none for this window's own tab — Claude Code focuses it", () => {
-    expect(openConflict([vsc({})], 's1', SELF, true)).toEqual({ kind: 'none' });
+    expect(openConflict([vsc({})], 's1', SELF, 'tab', true)).toEqual({ kind: 'none' });
+    expect(openConflict([vsc({})], 's1', SELF, 'right', true)).toEqual({ kind: 'none' });
   });
   it("is a conflict for this window's side panel: editor.open focuses tabs only, and starts a second process", () => {
-    const r = openConflict([vsc({})], 's1', SELF, false);
+    const r = openConflict([vsc({})], 's1', SELF, 'tab', false);
     expect(r.kind === 'elsewhere' && r.processes.map(p => p.pid)).toEqual([100]);
     expect(openConflict([vsc({})], 's1', SELF).kind).toBe('elsewhere');       // hasTabHere defaults to "no"
+  });
+  it("is none when opened in the side panel: it reuses a session it holds, or Claude Code focuses the tab", () => {
+    // the panel keeps every session it has shown alive, each a process of this window with no tab
+    expect(openConflict([vsc({})], 's1', SELF, 'right', false)).toEqual({ kind: 'none' });
+  });
+  it('is still a conflict in the side panel for another window or a terminal', () => {
+    const term = { ...parseRegistryEntry(entry({ pid: 101, entrypoint: 'cli' }))!, ppid: 55 };
+    const r = openConflict([vsc({}), { ...vsc({ pid: 102 }), ppid: 99 }, term], 's1', SELF, 'right', false);
+    expect(r.kind === 'elsewhere' && r.processes.map(p => p.pid)).toEqual([102, 101]);
   });
   it('is a conflict for another window, and for a terminal', () => {
     const other = { ...vsc({}), ppid: 99 };
     const term = { ...parseRegistryEntry(entry({ pid: 101, entrypoint: 'cli' }))!, ppid: 55 };
-    const r = openConflict([vsc({}), other, term], 's1', SELF, true);
+    const r = openConflict([vsc({}), other, term], 's1', SELF, 'tab', true);
     expect(r.kind === 'elsewhere' && r.processes.map(p => p.pid)).toEqual([100, 101]);
   });
   it('with no parent known, only what is certainly not a VS Code tab counts', () => {
     const noParent = (o: object) => parseRegistryEntry(entry(o))!;
     expect(openConflict([noParent({})], 's1', SELF)).toEqual({ kind: 'none' });
-    expect(openConflict([noParent({})], 's1', SELF, true)).toEqual({ kind: 'none' });
+    expect(openConflict([noParent({})], 's1', SELF, 'tab', true)).toEqual({ kind: 'none' });
     expect(openConflict([noParent({ entrypoint: 'cli' })], 's1', SELF).kind).toBe('elsewhere');
     expect(openConflict([noParent({ entrypoint: undefined })], 's1', SELF).kind).toBe('elsewhere');
   });

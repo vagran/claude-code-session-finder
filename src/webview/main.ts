@@ -159,12 +159,13 @@ function rowEl(r: RowVM | LinkVM): HTMLLIElement {
   }
   const id = r.sessionId;
   const li = h('li', { class: 'row', role: 'option', tabindex: '-1', 'data-id': id, 'data-key': keyOf(r) });
-  // Click resumes in a tab, so no button repeats that. Four that look, each saying what, then the one that closes.
+  // Click resumes in the right panel, so no button repeats that; one opens it in a tab instead. Then three that
+  // look, each saying what, and the one that closes.
   const close = actionButton('close', 'Close: move to Closed and close its tab (Delete)', () => post({ type: 'close', sessionId: id }));
   close.classList.add('action--close');
   const actions = h('span', { class: 'row__actions' },
+    actionButton('window', 'Resume in a tab (Shift+Enter)', () => post({ type: 'open', sessionId: id, where: 'tab' })),
     actionButton('type-hierarchy', 'Read it here: agents, timeline, transcript (V)', () => post({ type: 'view', sessionId: id })),
-    actionButton('layout-sidebar-right', 'Resume in the right panel (Shift+Enter)', () => post({ type: 'open', sessionId: id, where: 'right' })),
     actionButton('link', 'Copy a link that reopens this session', () => post({ type: 'copyLink', sessionId: id })),
     actionButton('file-code', 'Open the raw transcript file (T)', () => post({ type: 'transcript', sessionId: id })),
     close,
@@ -184,7 +185,7 @@ function rowEl(r: RowVM | LinkVM): HTMLLIElement {
         h('span', { class: 'row__age tip' }),
         h('span', { class: 'row__heat tip', role: 'img' }))),
   );
-  li.addEventListener('click', () => post({ type: 'open', sessionId: id, where: 'tab' }));
+  li.addEventListener('click', () => post({ type: 'open', sessionId: id, where: 'right' }));
   updateRow(li, r);
   return li;
 }
@@ -325,7 +326,7 @@ function refreshTimes(): void {
   }
 }
 
-/** Roving focus: ↑/↓ move, Enter opens in a tab, Shift+Enter in the right panel, T transcript, V view, Delete closes, / filter. */
+/** Roving focus: ↑/↓ move, Enter opens in the right panel, Shift+Enter in a tab, T transcript, V view, Delete closes, / filter. */
 root.addEventListener('keydown', e => {
   if (e.target === filterInput || e.metaKey || e.ctrlKey || e.altKey) return;   // typing, or a chord for VS Code (Cmd+V is not V)
   const rows = Array.from(sectionsEl.querySelectorAll<HTMLElement>('.row'));   // not [...], which needs lib dom.iterable
@@ -340,7 +341,7 @@ root.addEventListener('keydown', e => {
     case 'End':       e.preventDefault(); focus(rows.length - 1); break;
     case 'Enter':
       e.preventDefault();
-      if (id) post({ type: 'open', sessionId: id, where: e.shiftKey ? 'right' : 'tab' });
+      if (id) post({ type: 'open', sessionId: id, where: e.shiftKey ? 'tab' : 'right' });
       else if (current?.dataset.action) linkAction(current.dataset.action as LinkVM['action']);
       break;
     case 't': case 'T': if (id) post({ type: 'transcript', sessionId: id }); break;

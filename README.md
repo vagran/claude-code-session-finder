@@ -111,10 +111,10 @@ listed sessions with the same syntax as the picker below — words, `"phrase"`,
 a tab, read another in the Session View, come back, refine, and `Esc` or the
 `×` restores Active and Closed. Deep `!` searches stay in the picker.
 
-`↑` `↓` move · `Enter` opens in a tab · `Shift+Enter` opens in the right panel ·
-`V` opens the Session View · `T` opens the raw transcript · `Delete` closes the
-session · `/` filters. Hover or focus a row for the same actions as buttons,
-plus a copyable deep link.
+`↑` `↓` move · `Enter` (or a click) opens in the right panel · `Shift+Enter`
+opens in a tab · `V` opens the Session View · `T` opens the raw transcript ·
+`Delete` closes the session · `/` filters. Hover or focus a row for the same
+actions as buttons, plus a copyable deep link.
 
 Opening in the right panel uses Claude Code's own "Open in Side Bar", which also
 makes that the default for new sessions until you run **Claude Code: Open in New

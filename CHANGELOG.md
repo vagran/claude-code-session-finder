@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+**A long command no longer rings the bell.** A tool call with no result for 60
+seconds showed 🔔 "waiting on a tool or a permission prompt", because the
+transcript cannot tell the two apart, so every test run or build longer than a
+minute rang. The process table can: a command runs as a child of the session's
+Claude Code process, and a child that started after the tool call is that
+call's. While there is one, the row keeps the spinner. Background tasks started
+earlier (`run_in_background`, Monitor) do not count, so they cannot hide a real
+prompt. This needs `/proc`, so Linux only. Elsewhere, and for tools that start no
+process (an MCP call), the quiet rule stands.
+
 **Opening a session that is already running elsewhere asks first.** Nothing
 stops two Claude Code processes resuming one session: both append to its
 transcript, it forks, and the next resume follows only the branch written last,

@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -133,3 +133,70 @@ export function describeProcess(p: ClaudeProcess & { ppid?: number }, selfPid?: 
   const bits = [p.status, `pid ${p.pid}`].filter(Boolean).join(', ');
   return `${where} (${bits})`;
 }
+
+/**
+ * Is the session's pending tool call running a command right now? The transcript cannot say: a
+ * tool_use with no result looks the same whether its command runs for ten minutes or Claude Code
+ * waits on a permission prompt. The process table can: a command is a child of the session's Claude
+ * Code process (Bash runs `zsh -c …` or `bash -c …`), and one that started after the tool_use record
+ * is that call's. Background tasks started earlier (`run_in_background`, Monitor) are children too,
+ * but older, so they do not count — else they would hide a real prompt.
+ * Linux only (/proc); elsewhere, or without a registry, the answer is "no" and nothing changes.
+ * A tool that starts no process (an MCP call, a web fetch) also answers "no": the quiet rule stands.
+ */
+export async function toolRunning(
+  sessionId: string, sinceMs: number, io: ToolRunningIo = procIo,
+): Promise<boolean> {
+  const live = await io.live();
+  if (!live) return false;
+  const boot = io.bootMs();
+  if (boot === undefined) return false;
+  for (const p of live) {
+    if (p.sessionId !== sessionId) continue;
+    for (const child of io.children(p.pid)) {
+      const start = io.info(child).start;
+      if (start !== undefined && startedAfter(start, boot, sinceMs)) return true;
+    }
+  }
+  return false;
+}
+
+/** Linux clock ticks per second in /proc/<pid>/stat (USER_HZ): 100 on every Linux ABI. */
+const USER_HZ = 100;
+/** The tool_use record is written a moment before the command spawns; a clock step or rounding may not flip that. */
+const SPAWN_SLACK_MS = 1_000;
+
+/** `start` — field 22 of /proc/<pid>/stat, ticks since boot — against a wall-clock moment. */
+export function startedAfter(start: string, bootMs: number, sinceMs: number): boolean {
+  const ticks = Number(start);
+  return Number.isFinite(ticks) && bootMs + ticks * (1000 / USER_HZ) >= sinceMs - SPAWN_SLACK_MS;
+}
+
+export interface ToolRunningIo {
+  live: () => Promise<Array<ClaudeProcess & { ppid?: number }> | null>;
+  children: (pid: number) => number[];
+  info: (pid: number) => ProcInfo;
+  bootMs: () => number | undefined;
+}
+
+const procIo: ToolRunningIo = {
+  live: () => readLiveProcesses(),
+  // Every thread's list: a child is listed under the thread that forked it.
+  children: pid => {
+    try {
+      return readdirSync(`/proc/${pid}/task`).flatMap(tid => {
+        try { return readFileSync(`/proc/${pid}/task/${tid}/children`, 'utf8').split(' ').filter(Boolean).map(Number); } catch { return []; }
+      });
+    } catch { return []; }
+  },
+  info: procInfo,
+  bootMs: () => {
+    try {
+      const m = /^btime (\d+)$/m.exec(readFileSync('/proc/stat', 'utf8'));
+      return m ? Number(m[1]) * 1000 : undefined;
+    } catch { return undefined; }
+  },
+};
+
+/** The real /proc reader, for the one test that runs against this machine. */
+export const procIoForTest = procIo;

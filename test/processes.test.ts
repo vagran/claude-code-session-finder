@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  toolRunning, startedAfter, procIoForTest, type ToolRunningIo,
   parseRegistryEntry, isLive, readLiveProcesses, openConflict, describeProcess, procInfo, type ProcInfo,
 } from '../src/core/processes.js';
 
@@ -122,5 +123,52 @@ describe('describeProcess', () => {
     expect(describeProcess({ pid: 8, sessionId: 's', entrypoint: 'claude-vscode', status: 'idle', ppid: 3 }, 3))
       .toBe("this window's Claude Code side panel (idle, pid 8)");
     expect(describeProcess({ pid: 9, sessionId: 's', entrypoint: 'claude-vscode', ppid: 4 }, 3)).toBe('another VS Code window (pid 9)');
+  });
+});
+
+describe('toolRunning — is the pending tool call running a command?', () => {
+  const BOOT = 1_000_000_000_000;                            // ms; a child's start is ticks (1/100 s) after it
+  const at = (ms: number) => String((ms - BOOT) / 10);
+  const SINCE = BOOT + 5_000_000;                            // the tool_use record
+  const io = (children: Record<number, number[]>, starts: Record<number, number>, live = [{ pid: 10, sessionId: 's1' }]): ToolRunningIo => ({
+    live: async () => live,
+    children: pid => children[pid] ?? [],
+    info: pid => starts[pid] !== undefined ? { alive: true, start: at(starts[pid]) } : { alive: false },
+    bootMs: () => BOOT,
+  });
+  it('yes for a child that started with the tool call', async () => {
+    expect(await toolRunning('s1', SINCE, io({ 10: [11] }, { 11: SINCE + 300 }))).toBe(true);
+    expect(await toolRunning('s1', SINCE, io({ 10: [11] }, { 11: SINCE - 500 }))).toBe(true);    // within the spawn slack
+  });
+  it('no for a background task started before it — it would hide a permission prompt', async () => {
+    expect(await toolRunning('s1', SINCE, io({ 10: [11] }, { 11: SINCE - 16 * 60_000 }))).toBe(false);
+  });
+  it("no without children, for another session's process, and without a registry or boot time", async () => {
+    expect(await toolRunning('s1', SINCE, io({}, {}))).toBe(false);
+    expect(await toolRunning('s2', SINCE, io({ 10: [11] }, { 11: SINCE + 300 }))).toBe(false);
+    expect(await toolRunning('s1', SINCE, { ...io({ 10: [11] }, { 11: SINCE + 300 }), live: async () => null })).toBe(false);
+    expect(await toolRunning('s1', SINCE, { ...io({ 10: [11] }, { 11: SINCE + 300 }), bootMs: () => undefined })).toBe(false);
+  });
+  it('any of the session\'s processes counts', async () => {
+    const two = [{ pid: 10, sessionId: 's1' }, { pid: 20, sessionId: 's1' }];
+    expect(await toolRunning('s1', SINCE, io({ 20: [21] }, { 21: SINCE + 1 }, two))).toBe(true);
+  });
+  it('startedAfter converts ticks since boot to wall time', () => {
+    expect(startedAfter('100', BOOT, BOOT + 1_000)).toBe(true);       // 1 s after boot, since exactly then
+    expect(startedAfter('100', BOOT, BOOT + 2_001)).toBe(false);      // more than the slack before
+    expect(startedAfter('x', BOOT, BOOT)).toBe(false);
+  });
+  it('on this machine: a child this test spawns is seen as started after "now"', async () => {
+    if (process.platform !== 'linux') return;
+    const { spawn } = await import('node:child_process');
+    const since = Date.now();
+    const child = spawn('sleep', ['5']);
+    try {
+      await new Promise(r => setTimeout(r, 100));
+      const live = async () => [{ pid: process.pid, sessionId: 'me' }];
+      const ioReal: ToolRunningIo = { ...procIoForTest, live };
+      expect(await toolRunning('me', since, ioReal)).toBe(true);
+      expect(await toolRunning('me', since + 60_000, ioReal)).toBe(false);
+    } finally { child.kill(); }
   });
 });

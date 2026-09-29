@@ -107,6 +107,11 @@ describe('resolveState (spec §7 table)', () => {
     expect(resolveState('awaiting-tool', t.toolQuietMs - 1, t)).toEqual({ kind: 'running' });
     expect(resolveState('awaiting-tool', t.toolQuietMs, t)).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
   });
+  it('a command still running keeps awaiting-tool running past toolQuietMs — work, not a permission prompt', () => {
+    expect(resolveState('awaiting-tool', 10 * t.toolQuietMs, t, true)).toEqual({ kind: 'running' });
+    expect(resolveState('awaiting-tool', 10 * t.toolQuietMs, t, false)).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
+    expect(resolveState('turn-ended', 0, t, true)).toEqual({ kind: 'attention', reason: 'your-turn' });   // only awaiting-tool listens
+  });
   it('awaiting-model stays running through a long generation and flips at stalledMs (L5)', () => {
     expect(resolveState('awaiting-model', 130_000, t)).toEqual({ kind: 'running' });   // the proof case
     expect(resolveState('awaiting-model', t.stalledMs - 1, t)).toEqual({ kind: 'running' });

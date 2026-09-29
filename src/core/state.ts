@@ -117,15 +117,17 @@ export const classifyTail = (text: string): TailVerdict => readTailInfo(text).ve
  * Spec §7 table. `turn-ended` ignores quiet time on purpose. `unknown` — a tail with nothing
  * conversational, which a written-moments-ago file can still have — is read like `awaiting-model`:
  * recency decided the session is ACTIVE, and the verdict only refines how it shows.
+ * `toolRunning`: the pending tool call's command is running (processes.ts toolRunning). A long
+ * command is work, not a permission prompt, so it keeps the spinner past the quiet threshold.
  */
 export function resolveState(
-  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS,
+  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS, toolRunning = false,
 ): LiveState {
   switch (verdict) {
     case 'turn-ended':     return { kind: 'attention', reason: 'your-turn' };
     case 'awaiting-answer': return { kind: 'attention', reason: 'question' };
     case 'interrupted':    return { kind: 'attention', reason: 'interrupted' };
-    case 'awaiting-tool':  return quietMs < t.toolQuietMs ? { kind: 'running' } : { kind: 'attention', reason: 'tool-or-permission' };
+    case 'awaiting-tool':  return quietMs < t.toolQuietMs || toolRunning ? { kind: 'running' } : { kind: 'attention', reason: 'tool-or-permission' };
     case 'awaiting-model':
     case 'unknown':        return quietMs < t.stalledMs   ? { kind: 'running' } : { kind: 'attention', reason: 'stalled' };
   }

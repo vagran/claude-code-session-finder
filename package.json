@@ -113,7 +113,7 @@
           "type": "number",
           "default": 60,
           "minimum": 5,
-          "description": "A session that has been waiting on a tool call for longer than this is shown as \"waiting on a tool or a permission prompt\". Raise it if your tests or builds run long."
+          "description": "A session that has been waiting on a tool call for longer than this is shown as \"waiting on a tool or a permission prompt\". On Linux a command that is still running keeps the spinner however long it runs; elsewhere, raise this if your tests or builds run long."
         },
         "sessionFinder.stalledMinutes": {
           "type": "number",

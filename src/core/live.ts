@@ -2,6 +2,7 @@ import { stat as fsStat } from 'node:fs/promises';
 import { discover as fsDiscover, defaultRoot, type SourceFile } from './discover.js';
 import { effectiveMtime, pickMainFile, resolveState, DEFAULT_THRESHOLDS, type Liveness, type TailInfo, type TailVerdict, type Thresholds } from './state.js';
 import { readTailInfoFrom as fsReadTailInfo } from './tail-io.js';
+import { toolRunning as procToolRunning } from './processes.js';
 
 export interface TrackerDeps {
   discover: (root: string) => Promise<SourceFile[]>;
@@ -9,6 +10,8 @@ export interface TrackerDeps {
   /** a bare verdict is accepted (tests); the real reader also returns the context size */
   readVerdict: (path: string, size: number) => Promise<TailVerdict | TailInfo>;
   now: () => number;
+  /** whether the session's pending tool call is running a command started at or after `sinceMs`; absent → never */
+  toolRunning?: (sessionId: string, sinceMs: number) => Promise<boolean>;
 }
 
 export interface TrackerOptions {
@@ -30,6 +33,8 @@ interface Tracked {
   /** `${mtimeMs}:${size}` of `main` when its tail was last read — the same key cache.ts uses. */
   key: string;
   info: TailInfo;
+  /** set by refreshTools() while the verdict is awaiting-tool past the quiet threshold */
+  toolRunning?: boolean;
 }
 
 const toInfo = (v: TailVerdict | TailInfo): TailInfo => typeof v === 'string' ? { verdict: v } : v;
@@ -102,6 +107,7 @@ export class LivenessTracker {
       next.set(sessionId, { sessionId, files: group, main, key, info });
     }
     this.tracked = next;
+    await this.refreshTools();
     this.publish();
   }
 
@@ -122,7 +128,22 @@ export class LivenessTracker {
         t.main = main;
       }
     }
+    await this.refreshTools();
     this.publish();
+  }
+
+  /**
+   * Only a session waiting on a tool past the quiet threshold needs the process table — the one case
+   * where "a long command" and "a permission prompt" read the same. Everyone else skips it.
+   */
+  private async refreshTools(): Promise<void> {
+    const check = this.deps.toolRunning;
+    const now = this.deps.now();
+    for (const t of this.tracked.values()) {
+      const since = activityMs(t);
+      const waiting = t.info.verdict === 'awaiting-tool' && now - since >= this.thresholds.toolQuietMs;
+      t.toolRunning = waiting && check ? await check(t.sessionId, t.info.lastTs ?? t.main.mtimeMs).catch(() => false) : undefined;
+    }
   }
 
   start(): void {
@@ -152,7 +173,7 @@ export class LivenessTracker {
       const lastWriteMs = activityMs(t);
       const pastWindow = now - lastWriteMs > this.opts.activeWindowMs;
       if (pastWindow && !this.pinned.has(t.sessionId)) continue;
-      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds);
+      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds, t.toolRunning === true);
       const l: Liveness = { sessionId: t.sessionId, verdict: t.info.verdict, state, lastWriteMs };
       if (pastWindow) l.parked = true;
       if (t.info.contextTokens !== undefined) l.contextTokens = t.info.contextTokens;
@@ -196,5 +217,6 @@ function defaultDeps(): TrackerDeps {
     stat: async p => { const s = await fsStat(p); return { mtimeMs: s.mtimeMs, size: s.size }; },
     readVerdict: fsReadTailInfo,
     now: () => Date.now(),
+    toolRunning: procToolRunning,
   };
 }

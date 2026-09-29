@@ -6,7 +6,7 @@ import type { TailInfo, TailVerdict } from '../src/core/state.js';
 const MIN = 60_000, H = 60 * MIN;
 
 /** An in-memory corpus: the tracker only ever sees it through the injected deps. */
-function harness(files: SourceFile[], verdicts: Record<string, TailVerdict | TailInfo>, start = 100 * H) {
+function harness(files: SourceFile[], verdicts: Record<string, TailVerdict | TailInfo>, start = 100 * H, extra: Partial<TrackerDeps> = {}) {
   let clock = start;
   const reads: string[] = [];
   const deps: TrackerDeps = {
@@ -18,6 +18,7 @@ function harness(files: SourceFile[], verdicts: Record<string, TailVerdict | Tai
     },
     readVerdict: async p => { reads.push(p); return verdicts[p] ?? 'unknown'; },
     now: () => clock,
+    ...extra,
   };
   const changes: Change[] = [];
   const tracker = new LivenessTracker({ activeWindowMs: 4 * H }, deps);
@@ -224,5 +225,31 @@ describe('activity is the last conversational record, not the file (a resume onl
     await h.tracker.tick();
     expect([...h.tracker.liveness.keys()]).toEqual([]);
     expect(h.changes.at(-1)!.membershipChanged).toBe(true);
+  });
+});
+
+describe('LivenessTracker — a long tool call', () => {
+  it('asks the process table only past the quiet threshold, and a running command keeps the spinner', async () => {
+    const t0 = 100 * H;
+    const asked: Array<[string, number]> = [];
+    let running = true;
+    const h = harness([main('a', t0 - 5 * MIN), main('b', t0 - 5 * MIN), main('c', t0 - 10_000)], {
+      '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5 * MIN },
+      '/p/-w/b.jsonl': { verdict: 'turn-ended', lastTs: t0 - 5 * MIN },
+      '/p/-w/c.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 10_000 },
+    }, t0, { toolRunning: async (id, since) => { asked.push([id, since]); return running; } });
+    await h.tracker.sweep();
+    expect(asked).toEqual([['a', t0 - 5 * MIN]]);          // since the tool_use; b is done, c is not quiet yet
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'running' });
+    running = false;                                        // the command ended, or it was a permission prompt
+    await h.tracker.tick();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
+  });
+  it('a failing check reads as "no command": the quiet rule stands', async () => {
+    const t0 = 100 * H;
+    const h = harness([main('a', t0 - 5 * MIN)], { '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5 * MIN } }, t0,
+      { toolRunning: async () => { throw new Error('no /proc'); } });
+    await h.tracker.sweep();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
   });
 });

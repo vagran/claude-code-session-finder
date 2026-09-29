@@ -1,13 +1,13 @@
 {
-  "name": "claude-code-session-finder",
-  "displayName": "Claude Code Sessions & Agents",
+  "name": "claude-code-session-organizer",
+  "displayName": "Claude Code Session Organizer",
   "description": "See which Claude Code sessions are running or waiting on you, browse and search every session's content, and open any of them in a tab or the right panel.",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "license": "MIT",
-  "publisher": "shobhitg",
+  "publisher": "vagran",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shobhitg/claude-code-session-finder"
+    "url": "https://github.com/vagran/claude-code-session-organizer"
   },
   "engines": {
     "vscode": "^1.94.0"
@@ -186,7 +186,6 @@
     "vscode:prepublish": "node esbuild.mjs --no-sourcemap",
     "package": "npx --no @vscode/vsce package --no-dependencies",
     "try": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/try-local.mjs",
-    "try:done": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/try-local.mjs --done",
     "publish:ovsx": "ovsx publish -p $OVSX_TOKEN",
     "publish:vsce": "vsce publish"
   },

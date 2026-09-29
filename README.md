@@ -1,14 +1,13 @@
-# Claude Code Sessions & Agents
+# Claude Code Session Organizer
+
+*Forked from https://github.com/shobhitg/claude-code-session-finder to fix bugs and improve overall
+workflow and functionality. Current version depends on Linux-specific features.*
 
 See what every Claude Code session is doing, find any past conversation by what
 was said in it, and read a session's full story — agents included — without
 resuming it.
 
 ![The Sessions view beside a Session View: a running session with two agents, one asking a question, one waiting on a permission prompt, one that is your turn, one interrupted, and the closed sessions below](docs/images/hero.png)
-
-> Formerly **Claude Code Session Finder**. Same extension id, so an existing
-> install updates in place; the commands, settings and keybinding are unchanged.
-> Inside VS Code the view is simply **Claude Code Sessions**.
 
 ## What is a session?
 

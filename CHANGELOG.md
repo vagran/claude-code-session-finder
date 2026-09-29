@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+First release of the fork of
+[shobhitg/claude-code-session-finder](https://github.com/shobhitg/claude-code-session-finder),
+as `vagran.claude-code-session-organizer`. Its history continues below from 0.8.0.
 
 **A permission prompt rings at once.** A pending tool call rang only after 60
 quiet seconds, because the transcript cannot tell a prompt from a tool that is

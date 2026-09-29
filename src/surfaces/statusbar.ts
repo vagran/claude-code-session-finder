@@ -28,7 +28,7 @@ export function createStatusBar(ctx: vscode.ExtensionContext): { update(s: Snaps
 
       const md = new vscode.MarkdownString(undefined, true);       // supportThemeIcons for the $(…) glyphs
       md.isTrusted = false;
-      if (dev) md.appendMarkdown(`$(beaker) Dev build ${mdEscape(version)}; \`npm run try:done\` puts the Marketplace build back\n\n`);
+      if (dev) md.appendMarkdown(`$(beaker) Dev build ${mdEscape(version)}; \`npm run try\` installs the next one\n\n`);
       md.appendMarkdown('**Claude Code sessions**\n\n');
       for (const r of ringingFirst(s.active)) {
         const meta = [r.project, r.branch].filter(Boolean).join(' · ');

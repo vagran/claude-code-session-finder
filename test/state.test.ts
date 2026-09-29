@@ -112,6 +112,10 @@ describe('resolveState (spec §7 table)', () => {
     expect(resolveState('awaiting-tool', 10 * t.toolQuietMs, t, false)).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
     expect(resolveState('turn-ended', 0, t, true)).toEqual({ kind: 'attention', reason: 'your-turn' });   // only awaiting-tool listens
   });
+  it('a finished turn with background tasks running is running in the background, however long ago', () => {
+    expect(resolveState('turn-ended', 3_600_000, t, false, true)).toEqual({ kind: 'running', background: true });
+    expect(resolveState('interrupted', 0, t, false, true)).toEqual({ kind: 'attention', reason: 'interrupted' });   // Esc still needs you
+  });
   it('awaiting-model stays running through a long generation and flips at stalledMs (L5)', () => {
     expect(resolveState('awaiting-model', 130_000, t)).toEqual({ kind: 'running' });   // the proof case
     expect(resolveState('awaiting-model', t.stalledMs - 1, t)).toEqual({ kind: 'running' });

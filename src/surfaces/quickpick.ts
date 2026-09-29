@@ -32,7 +32,8 @@ function toRow(hit: SessionHit, liveness: ReadonlyMap<string, Liveness>): Row {
   if (!m.cwdExists) bits.push('⚠ folder missing');
   // Stage 1 (spec §9.3): the glyph is the session's live state; history keeps the sparkle.
   const live = liveness.get(m.sessionId);
-  const glyph = live ? stateIcon({ state: live.state.kind, ...(live.state.kind === 'attention' ? { reason: live.state.reason } : {}) }) : 'sparkle';
+  const glyph = live ? stateIcon({ state: live.state.kind, ...(live.state.kind === 'attention' ? { reason: live.state.reason } : {}),
+                                   ...(live.state.kind === 'running' && live.state.background ? { background: true as const } : {}) }) : 'sparkle';
   return {
     label: `$(${glyph}) ${m.title ?? hit.best?.text.slice(0, 60) ?? m.sessionId}`,
     description: bits.filter(Boolean).join(' · '),

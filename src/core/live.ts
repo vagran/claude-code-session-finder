@@ -2,7 +2,7 @@ import { stat as fsStat } from 'node:fs/promises';
 import { discover as fsDiscover, defaultRoot, type SourceFile } from './discover.js';
 import { effectiveMtime, pickMainFile, resolveState, DEFAULT_THRESHOLDS, type Liveness, type TailInfo, type TailVerdict, type Thresholds } from './state.js';
 import { readTailInfoFrom as fsReadTailInfo } from './tail-io.js';
-import { toolRunning as procToolRunning } from './processes.js';
+import { readProcSnapshot, type ProcSnapshot } from './processes.js';
 
 export interface TrackerDeps {
   discover: (root: string) => Promise<SourceFile[]>;
@@ -10,8 +10,8 @@ export interface TrackerDeps {
   /** a bare verdict is accepted (tests); the real reader also returns the context size */
   readVerdict: (path: string, size: number) => Promise<TailVerdict | TailInfo>;
   now: () => number;
-  /** whether the session's pending tool call is running a command started at or after `sinceMs`; absent → never */
-  toolRunning?: (sessionId: string, sinceMs: number) => Promise<boolean>;
+  /** the process table, read once per refresh (processes.ts); absent or null → the transcript alone decides */
+  processes?: () => Promise<ProcSnapshot | null>;
 }
 
 export interface TrackerOptions {
@@ -35,6 +35,8 @@ interface Tracked {
   info: TailInfo;
   /** set by refreshTools() while the verdict is awaiting-tool past the quiet threshold */
   toolRunning?: boolean;
+  /** set by refreshTools() while the verdict is turn-ended: its background tasks are running */
+  background?: boolean;
 }
 
 const toInfo = (v: TailVerdict | TailInfo): TailInfo => typeof v === 'string' ? { verdict: v } : v;
@@ -133,16 +135,19 @@ export class LivenessTracker {
   }
 
   /**
-   * Only a session waiting on a tool past the quiet threshold needs the process table — the one case
-   * where "a long command" and "a permission prompt" read the same. Everyone else skips it.
+   * Two cases need the process table, because the transcript reads the same either way: a tool call
+   * waiting past the quiet threshold (a long command, or a permission prompt?) and a finished turn
+   * (your turn, or a pause while background tasks run?). The table is read once, only when some
+   * session is in one of them.
    */
   private async refreshTools(): Promise<void> {
-    const check = this.deps.toolRunning;
     const now = this.deps.now();
+    const waiting = (t: Tracked) => t.info.verdict === 'awaiting-tool' && now - activityMs(t) >= this.thresholds.toolQuietMs;
+    const asks = [...this.tracked.values()].filter(t => waiting(t) || t.info.verdict === 'turn-ended');
+    const snap = asks.length && this.deps.processes ? await this.deps.processes().catch(() => null) : null;
     for (const t of this.tracked.values()) {
-      const since = activityMs(t);
-      const waiting = t.info.verdict === 'awaiting-tool' && now - since >= this.thresholds.toolQuietMs;
-      t.toolRunning = waiting && check ? await check(t.sessionId, t.info.lastTs ?? t.main.mtimeMs).catch(() => false) : undefined;
+      t.toolRunning = snap && waiting(t) ? snap.toolRunning(t.sessionId, t.info.lastTs ?? t.main.mtimeMs) : undefined;
+      t.background = snap && t.info.verdict === 'turn-ended' ? snap.backgroundTasks(t.sessionId) > 0 : undefined;
     }
   }
 
@@ -173,7 +178,7 @@ export class LivenessTracker {
       const lastWriteMs = activityMs(t);
       const pastWindow = now - lastWriteMs > this.opts.activeWindowMs;
       if (pastWindow && !this.pinned.has(t.sessionId)) continue;
-      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds, t.toolRunning === true);
+      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds, t.toolRunning === true, t.background === true);
       const l: Liveness = { sessionId: t.sessionId, verdict: t.info.verdict, state, lastWriteMs };
       if (pastWindow) l.parked = true;
       if (t.info.contextTokens !== undefined) l.contextTokens = t.info.contextTokens;
@@ -207,6 +212,7 @@ function sameLiveness(a: ReadonlyMap<string, Liveness>, b: ReadonlyMap<string, L
     const y = b.get(k);
     if (!y || x.verdict !== y.verdict || x.lastWriteMs !== y.lastWriteMs || x.state.kind !== y.state.kind || x.contextTokens !== y.contextTokens || x.parked !== y.parked) return false;
     if (x.state.kind === 'attention' && y.state.kind === 'attention' && x.state.reason !== y.state.reason) return false;
+    if (x.state.kind === 'running' && y.state.kind === 'running' && x.state.background !== y.state.background) return false;
   }
   return true;
 }
@@ -217,6 +223,6 @@ function defaultDeps(): TrackerDeps {
     stat: async p => { const s = await fsStat(p); return { mtimeMs: s.mtimeMs, size: s.size }; },
     readVerdict: fsReadTailInfo,
     now: () => Date.now(),
-    toolRunning: procToolRunning,
+    processes: () => readProcSnapshot(),
   };
 }

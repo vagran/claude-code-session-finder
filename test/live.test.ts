@@ -237,9 +237,9 @@ describe('LivenessTracker — a long tool call', () => {
       '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5 * MIN },
       '/p/-w/b.jsonl': { verdict: 'turn-ended', lastTs: t0 - 5 * MIN },
       '/p/-w/c.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 10_000 },
-    }, t0, { toolRunning: async (id, since) => { asked.push([id, since]); return running; } });
+    }, t0, { processes: async () => ({ toolRunning: (id, since) => { asked.push([id, since]); return running; }, backgroundTasks: () => 0 }) });
     await h.tracker.sweep();
-    expect(asked).toEqual([['a', t0 - 5 * MIN]]);          // since the tool_use; b is done, c is not quiet yet
+    expect(asked).toEqual([['a', t0 - 5 * MIN]]);          // since the tool_use; b is done (its background asked instead), c is not quiet yet
     expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'running' });
     running = false;                                        // the command ended, or it was a permission prompt
     await h.tracker.tick();
@@ -248,8 +248,35 @@ describe('LivenessTracker — a long tool call', () => {
   it('a failing check reads as "no command": the quiet rule stands', async () => {
     const t0 = 100 * H;
     const h = harness([main('a', t0 - 5 * MIN)], { '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5 * MIN } }, t0,
-      { toolRunning: async () => { throw new Error('no /proc'); } });
+      { processes: async () => { throw new Error('no /proc'); } });
     await h.tracker.sweep();
     expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
+  });
+});
+
+describe('LivenessTracker — background tasks between turns', () => {
+  const t0 = 100 * H;
+  const snap = (bg: Record<string, number>) => async () => ({ toolRunning: () => false, backgroundTasks: (id: string) => bg[id] ?? 0 });
+  it('a finished turn with background tasks running is running, in the background — not your turn', async () => {
+    const bg: Record<string, number> = { a: 2 };
+    const h = harness([main('a', t0 - 2 * MIN), main('b', t0 - 2 * MIN)], {
+      '/p/-w/a.jsonl': { verdict: 'turn-ended', lastTs: t0 - 2 * MIN },
+      '/p/-w/b.jsonl': { verdict: 'turn-ended', lastTs: t0 - 2 * MIN },
+    }, t0, { processes: async () => (await snap(bg)()) });
+    await h.tracker.sweep();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'running', background: true });
+    expect(h.tracker.liveness.get('b')!.state).toEqual({ kind: 'attention', reason: 'your-turn' });
+    const before = h.changes.length;
+    bg.a = 0;                                                  // the test run finished
+    await h.tracker.tick();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'attention', reason: 'your-turn' });
+    expect(h.changes.length).toBe(before + 1);                 // running → your turn is a change the view hears
+  });
+  it('does not read the process table when no session could use it', async () => {
+    let reads = 0;
+    const h = harness([main('a', t0 - 10_000)], { '/p/-w/a.jsonl': { verdict: 'awaiting-model', lastTs: t0 - 10_000 } }, t0,
+      { processes: async () => { reads++; return null; } });
+    await h.tracker.sweep();
+    expect(reads).toBe(0);
   });
 });

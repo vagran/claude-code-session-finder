@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  toolRunning, startedAfter, procIoForTest, type ToolRunningIo,
+  toolRunning, startedAfter, procIoForTest, readProcSnapshot, type ToolRunningIo,
   parseRegistryEntry, isLive, readLiveProcesses, openConflict, describeProcess, procInfo, type ProcInfo,
 } from '../src/core/processes.js';
 
@@ -134,6 +134,7 @@ describe('toolRunning — is the pending tool call running a command?', () => {
     live: async () => live,
     children: pid => children[pid] ?? [],
     info: pid => starts[pid] !== undefined ? { alive: true, start: at(starts[pid]) } : { alive: false },
+    cmdline: () => '',
     bootMs: () => BOOT,
   });
   it('yes for a child that started with the tool call', async () => {
@@ -169,6 +170,37 @@ describe('toolRunning — is the pending tool call running a command?', () => {
       const ioReal: ToolRunningIo = { ...procIoForTest, live };
       expect(await toolRunning('me', since, ioReal)).toBe(true);
       expect(await toolRunning('me', since + 60_000, ioReal)).toBe(false);
+    } finally { child.kill(); }
+  });
+});
+
+describe('readProcSnapshot — background tasks', () => {
+  const shell = '/usr/bin/zsh -c source /home/u/.claude/shell-snapshots/snapshot-zsh-1-x.sh 2>/dev/null || true && eval \'tail -f run.out\'';
+  const io = (cmd: Record<number, string>, children: Record<number, number[]>): ToolRunningIo => ({
+    live: async () => [{ pid: 10, sessionId: 's1' }, { pid: 20, sessionId: 's2' }],
+    children: pid => children[pid] ?? [],
+    info: () => ({ alive: true, start: '1' }),
+    cmdline: pid => cmd[pid] ?? '',
+    bootMs: () => 0,
+  });
+  it('counts the Bash tool shells under the session, and nothing else', async () => {
+    const snap = (await readProcSnapshot(io({ 11: shell, 12: shell, 13: 'node /opt/mcp-server/index.js', 21: 'npx some-mcp' },
+                                          { 10: [11, 12, 13], 20: [21] })))!;
+    expect(snap.backgroundTasks('s1')).toBe(2);
+    expect(snap.backgroundTasks('s2')).toBe(0);                 // a stdio MCP server is a child, not a task
+    expect(snap.backgroundTasks('nobody')).toBe(0);
+  });
+  it('is null without a registry', async () => {
+    expect(await readProcSnapshot({ ...io({}, {}), live: async () => null })).toBeNull();
+  });
+  it('on this machine: a Bash-tool-shaped child is seen', async () => {
+    if (process.platform !== 'linux') return;
+    const { spawn } = await import('node:child_process');
+    const child = spawn('sh', ['-c', 'sleep 5; true', '/x/.claude/shell-snapshots/snapshot-test']);   // $0 lands in cmdline; `; true` keeps sh from exec-ing sleep
+    try {
+      await new Promise(r => setTimeout(r, 100));
+      const snap = (await readProcSnapshot({ ...procIoForTest, live: async () => [{ pid: process.pid, sessionId: 'me' }] }))!;
+      expect(snap.backgroundTasks('me')).toBeGreaterThanOrEqual(1);
     } finally { child.kill(); }
   });
 });

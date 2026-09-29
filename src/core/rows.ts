@@ -7,6 +7,8 @@ export interface LiveRow {
   sessionId: string; title: string; project: string; branch: string | null; pr: number | null;
   cwdExists: boolean;
   state: 'running' | 'attention'; reason?: AttentionReason;
+  /** running only in its background tasks: the turn ended, and they will wake it (state.ts) */
+  background?: true;
   /** surfaces render "quiet 2 m" from this and their own clock */
   lastWriteMs: number;
   /** context the model was last given, and the model — the cost meter */
@@ -25,7 +27,7 @@ export interface Snapshot { active: LiveRow[]; history: HistoryRow[]; totalSessi
 /** A row of the sidebar's inline filter: a HISTORY-shaped row plus what matched, and its live state if it has one. */
 export interface SearchRow extends HistoryRow {
   snippet: string | null; matches: number;
-  live?: { state: 'running' | 'attention'; reason?: AttentionReason; lastWriteMs: number; contextTokens?: number; model?: string; ringing?: true };
+  live?: { state: 'running' | 'attention'; reason?: AttentionReason; background?: true; lastWriteMs: number; contextTokens?: number; model?: string; ringing?: true };
 }
 
 /** The derivation quickpick.ts has used since v0.1: last `--` segment of the sanitized dir name. */
@@ -34,8 +36,8 @@ export function projectLabel(projectDir: string): string {
 }
 
 /** Codicon NAME per state (spec §10 table). Surfaces wrap it: `$(name)` or `codicon-name`. */
-export function stateIcon(row: { state: 'running' | 'attention'; reason?: AttentionReason }): string {
-  if (row.state === 'running') return 'loading~spin';
+export function stateIcon(row: { state: 'running' | 'attention'; reason?: AttentionReason; background?: true }): string {
+  if (row.state === 'running') return row.background ? 'sync~spin' : 'loading~spin';
   switch (row.reason) {
     case 'tool-or-permission': return 'bell-dot';
     case 'question': return 'question';
@@ -77,8 +79,8 @@ export function ringingFirst<T extends { state: string; ringing?: true }>(rows: 
 }
 
 /** One sentence per state — the glyph's tooltip everywhere it is drawn. */
-export function stateLabel(row: { state: 'running' | 'attention'; reason?: AttentionReason }): string {
-  if (row.state === 'running') return 'Claude is working';
+export function stateLabel(row: { state: 'running' | 'attention'; reason?: AttentionReason; background?: true }): string {
+  if (row.state === 'running') return row.background ? 'Between turns, background tasks running — they will wake Claude' : 'Claude is working';
   switch (row.reason) {
     case 'question': return 'Claude is waiting for your answer — a question, or a plan to approve';
     case 'tool-or-permission': return 'Waiting on a tool call or a permission prompt';
@@ -126,6 +128,7 @@ export function rowsForHits(hits: SessionHit[], liveness: ReadonlyMap<string, Li
       snippet: h.best ? snippet(h.best.text, h.best.index) : null, matches: h.matchCount,
     };
     if (l) row.live = { state: l.state.kind, lastWriteMs: l.lastWriteMs, ...(l.state.kind === 'attention' ? { reason: l.state.reason } : {}),
+                        ...(l.state.kind === 'running' && l.state.background ? { background: true as const } : {}),
                         ...(l.contextTokens !== undefined ? { contextTokens: l.contextTokens } : {}), ...(l.model !== undefined ? { model: l.model } : {}),
                         ...(opts.rings?.(l) ? { ringing: true as const } : {}) };
     return row;
@@ -279,6 +282,7 @@ export function buildSnapshot(
         state: l.state.kind, lastWriteMs: l.lastWriteMs,
       };
       if (l.state.kind === 'attention') row.reason = l.state.reason;
+      if (l.state.kind === 'running' && l.state.background) row.background = true;
       if (l.contextTokens !== undefined) row.contextTokens = l.contextTokens;
       if (l.model !== undefined) row.model = l.model;
       if (l.parked) row.parked = true;

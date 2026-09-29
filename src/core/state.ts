@@ -10,7 +10,8 @@ export type TailVerdict =
   | 'unknown';        // nothing conversational in the window
 
 export type AttentionReason = 'tool-or-permission' | 'question' | 'your-turn' | 'interrupted' | 'stalled';
-export type LiveState = { kind: 'running' } | { kind: 'attention'; reason: AttentionReason };
+/** `background`: the turn ended, but the session's background tasks run on and will wake it (processes.ts). */
+export type LiveState = { kind: 'running'; background?: true } | { kind: 'attention'; reason: AttentionReason };
 
 export interface Thresholds { toolQuietMs: number; stalledMs: number }
 export const DEFAULT_THRESHOLDS: Thresholds = { toolQuietMs: 60_000, stalledMs: 900_000 };
@@ -119,12 +120,15 @@ export const classifyTail = (text: string): TailVerdict => readTailInfo(text).ve
  * recency decided the session is ACTIVE, and the verdict only refines how it shows.
  * `toolRunning`: the pending tool call's command is running (processes.ts toolRunning). A long
  * command is work, not a permission prompt, so it keeps the spinner past the quiet threshold.
+ * `background`: the session's background tasks are running. A finished turn is then a pause in work
+ * that goes on — each task event starts a turn of its own — so it is not your turn: it shows as
+ * running, in the background, and does not ring.
  */
 export function resolveState(
-  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS, toolRunning = false,
+  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS, toolRunning = false, background = false,
 ): LiveState {
   switch (verdict) {
-    case 'turn-ended':     return { kind: 'attention', reason: 'your-turn' };
+    case 'turn-ended':     return background ? { kind: 'running', background: true } : { kind: 'attention', reason: 'your-turn' };
     case 'awaiting-answer': return { kind: 'attention', reason: 'question' };
     case 'interrupted':    return { kind: 'attention', reason: 'interrupted' };
     case 'awaiting-tool':  return quietMs < t.toolQuietMs || toolRunning ? { kind: 'running' } : { kind: 'attention', reason: 'tool-or-permission' };

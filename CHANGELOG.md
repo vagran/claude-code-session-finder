@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**A session working in the background is not "your turn".** A session that
+starts a long test run in the background and a Monitor on its output ends its
+turn after every event ("Row 9 passes. Row 10 is next."), so it read as done and
+waiting for you while the run went on. A finished turn whose Claude Code process
+still has Bash tool shells alive (background commands and Monitors, told from
+other children such as an MCP server by the shell snapshot every Bash command is
+wrapped in) now shows as running in the background: a turning `sync` glyph,
+"background · 3m", no bell. It still counts as running in the status bar. It
+turns into "your turn" when the last task ends. Linux only, like the long-command
+check: one read of the process registry and `/proc` per refresh, and only when
+some session is waiting on a tool or has ended its turn.
+
 **A long command no longer rings the bell.** A tool call with no result for 60
 seconds showed 🔔 "waiting on a tool or a permission prompt", because the
 transcript cannot tell the two apart, so every test run or build longer than a

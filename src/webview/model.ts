@@ -48,8 +48,9 @@ export function fmtDuration(ms: number): string {
 const pair = (a: number, au: string, b: number, bu: string): string => b ? `${a}${au} ${b}${bu}` : `${a}${au}`;
 
 /** Spec §10 table, "Time label" column. */
-export function timeLabel(row: Pick<LiveRow, 'state' | 'reason' | 'lastWriteMs'>, now: number): string {
+export function timeLabel(row: Pick<LiveRow, 'state' | 'reason' | 'lastWriteMs' | 'background'>, now: number): string {
   const quiet = now - row.lastWriteMs;
+  if (row.state === 'running' && row.background) return `background · ${fmtDuration(quiet)}`;
   if (row.state === 'running') return quiet < 45_000 ? 'just now' : `quiet ${fmtDuration(quiet)}`;
   switch (row.reason) {
     case 'tool-or-permission': return `quiet ${fmtDuration(quiet)}`;
@@ -116,12 +117,13 @@ export function heatOf(tokens: number, budget = DEFAULT_CONTEXT_BUDGET): Heat {
 }
 
 // Under reduced motion the spinner becomes a static dot in the running colour (spec §10).
-const runningIcon = (reducedMotion?: boolean): string => reducedMotion ? 'circle-large-filled' : 'loading~spin';
+const runningIcon = (reducedMotion?: boolean, background?: true): string =>
+  reducedMotion ? (background ? 'circle-large' : 'circle-large-filled') : background ? 'sync~spin' : 'loading~spin';
 
 function liveRow(r: LiveRow, now: number, opts: ViewOpts): RowVM {
   const vm: RowVM = {
     kind: 'session', sessionId: r.sessionId, title: r.title, meta: metaLabel(r), time: timeLabel(r, now),
-    iconClass: iconClass(r.state === 'running' ? runningIcon(opts.reducedMotion) : stateIcon(r)), state: r.state,
+    iconClass: iconClass(r.state === 'running' ? runningIcon(opts.reducedMotion, r.background) : stateIcon(r)), state: r.state,
     missing: !r.cwdExists, selected: r.sessionId === opts.activeId, stateLabel: stateLabel(r),
   };
   if (r.reason) vm.reason = r.reason;
@@ -224,7 +226,7 @@ export function resultsModel(
 ): ViewModel {
   const vms: RowVM[] = (rows ?? []).map(r => {
     const vm: RowVM = r.live
-      ? liveRow({ ...r, state: r.live.state, lastWriteMs: r.live.lastWriteMs, ...(r.live.reason ? { reason: r.live.reason } : {}), ...(r.live.ringing ? { ringing: true as const } : {}) }, now, opts)
+      ? liveRow({ ...r, state: r.live.state, lastWriteMs: r.live.lastWriteMs, ...(r.live.reason ? { reason: r.live.reason } : {}), ...(r.live.background ? { background: true as const } : {}), ...(r.live.ringing ? { ringing: true as const } : {}) }, now, opts)
       : historyRow(r, opts);
     if (r.snippet) vm.snippet = r.snippet;
     return vm;

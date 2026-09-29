@@ -147,18 +147,38 @@ export function describeProcess(p: ClaudeProcess & { ppid?: number }, selfPid?: 
 export async function toolRunning(
   sessionId: string, sinceMs: number, io: ToolRunningIo = procIo,
 ): Promise<boolean> {
+  return (await readProcSnapshot(io))?.toolRunning(sessionId, sinceMs) ?? false;
+}
+
+/** What the process table says about each session's Claude Code process — read once, asked per session. */
+export interface ProcSnapshot {
+  /** the pending tool call's command is running: a child started at or after `sinceMs` (toolRunning above) */
+  toolRunning(sessionId: string, sinceMs: number): boolean;
+  /**
+   * Bash tool shells alive under the session's process. Between turns these are its background work:
+   * `run_in_background` commands and Monitors, which wake the session with a notification when they
+   * have something to say. Told from other children (a stdio MCP server) by the shell-snapshot every
+   * Bash tool command is wrapped in: `zsh -c source ~/.claude/shell-snapshots/snapshot-….sh …`.
+   */
+  backgroundTasks(sessionId: string): number;
+}
+
+const BASH_TOOL_SHELL = /\/\.claude\/shell-snapshots\/snapshot-/;
+
+/** null without a registry: unknown, and every answer stays as the transcript alone gives it. */
+export async function readProcSnapshot(io: ToolRunningIo = procIo): Promise<ProcSnapshot | null> {
   const live = await io.live();
-  if (!live) return false;
+  if (!live) return null;
   const boot = io.bootMs();
-  if (boot === undefined) return false;
-  for (const p of live) {
-    if (p.sessionId !== sessionId) continue;
-    for (const child of io.children(p.pid)) {
-      const start = io.info(child).start;
-      if (start !== undefined && startedAfter(start, boot, sinceMs)) return true;
-    }
-  }
-  return false;
+  const kids = new Map<string, number[]>();
+  for (const p of live) kids.set(p.sessionId, [...(kids.get(p.sessionId) ?? []), ...io.children(p.pid)]);
+  return {
+    toolRunning: (id, since) => boot !== undefined && (kids.get(id) ?? []).some(c => {
+      const start = io.info(c).start;
+      return start !== undefined && startedAfter(start, boot, since);
+    }),
+    backgroundTasks: id => (kids.get(id) ?? []).filter(c => BASH_TOOL_SHELL.test(io.cmdline(c))).length,
+  };
 }
 
 /** Linux clock ticks per second in /proc/<pid>/stat (USER_HZ): 100 on every Linux ABI. */
@@ -176,6 +196,8 @@ export interface ToolRunningIo {
   live: () => Promise<Array<ClaudeProcess & { ppid?: number }> | null>;
   children: (pid: number) => number[];
   info: (pid: number) => ProcInfo;
+  /** the command line, NUL separators as spaces; '' when unreadable */
+  cmdline: (pid: number) => string;
   bootMs: () => number | undefined;
 }
 
@@ -190,6 +212,7 @@ const procIo: ToolRunningIo = {
     } catch { return []; }
   },
   info: procInfo,
+  cmdline: pid => { try { return readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' '); } catch { return ''; } },
   bootMs: () => {
     try {
       const m = /^btime (\d+)$/m.exec(readFileSync('/proc/stat', 'utf8'));

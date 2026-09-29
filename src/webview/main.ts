@@ -112,7 +112,10 @@ function updateRow(li: HTMLLIElement, r: RowVM | LinkVM): void {
   li.dataset.state = r.state;
   if (r.reason) li.dataset.reason = r.reason; else delete li.dataset.reason;
   if (r.ringing) li.dataset.ringing = 'true'; else delete li.dataset.ringing;
-  li.title = r.title;
+  // The full title, natively, on the title only: on the whole row it came up a second after any of our own
+  // tooltips (state glyph, age tag, meter, buttons) and covered them.
+  li.removeAttribute('title');
+  li.querySelector<HTMLElement>('.row__title')!.title = r.title;
   li.setAttribute('aria-selected', String(r.selected));
   li.querySelector<HTMLElement>('.action--close')!.hidden = r.state === 'history';   // nothing to close on a closed row
   const icon = li.querySelector<HTMLElement>('.row__icon')!;

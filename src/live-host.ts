@@ -16,7 +16,7 @@ const HOUR = 3_600_000;
 const CLOSED_KEY = 'closedSessions';
 
 /** The two live-state thresholds, from settings (spec D5). Shared with the Session View. */
-export function readThresholds(c: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('sessionFinder')): Thresholds {
+export function readThresholds(c: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('sessionOrganizer')): Thresholds {
   return {
     toolQuietMs: Math.max(5, c.get<number>('toolQuietSeconds', 60)) * 1_000,
     stalledMs: Math.max(1, c.get<number>('stalledMinutes', 15)) * 60_000,
@@ -59,7 +59,7 @@ export class LiveHost implements vscode.Disposable {
     this.rebuildTracker();
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('sessionFinder')) this.rebuildTracker();
+        if (e.affectsConfiguration('sessionOrganizer')) this.rebuildTracker();
       }),
       // D6: nothing runs while the window is unfocused; the first focus event sweeps at once. Another
       // window may have looked at a session meanwhile: the snapshot published now re-reads the looks.
@@ -77,7 +77,7 @@ export class LiveHost implements vscode.Disposable {
   /** Sidebar scope: a per-workspace choice (the toggle) over the setting's default. */
   get scope(): SidebarScope {
     return this.ctx.workspaceState.get<SidebarScope>('sidebarScope')
-      ?? vscode.workspace.getConfiguration('sessionFinder').get<SidebarScope>('sidebarScope', 'workspace');
+      ?? vscode.workspace.getConfiguration('sessionOrganizer').get<SidebarScope>('sidebarScope', 'workspace');
   }
 
   async toggleScope(): Promise<void> {
@@ -88,7 +88,7 @@ export class LiveHost implements vscode.Disposable {
 
   /** The view-title toggle shows one of two icons; the `when` clause reads this context key. */
   private syncScopeContext(): Thenable<unknown> {
-    return vscode.commands.executeCommand('setContext', 'sessionFinder.scope', this.scope);
+    return vscode.commands.executeCommand('setContext', 'sessionOrganizer.scope', this.scope);
   }
 
   /** Whether the sidebar shows this session. Global surfaces (status bar, picker) never ask. */
@@ -132,7 +132,7 @@ export class LiveHost implements vscode.Disposable {
   private rebuildTracker(): void {
     this.tracker?.stop();
     this.unsubscribe?.();
-    const c = vscode.workspace.getConfiguration('sessionFinder');
+    const c = vscode.workspace.getConfiguration('sessionOrganizer');
     this.activeWindowMs = durationMs(c.get<string>('activeWindow', '4h'), 4 * HOUR);
     const tracker = new LivenessTracker({ activeWindowMs: this.activeWindowMs, thresholds: readThresholds(c) });
     tracker.setPinned(this.pinned);

@@ -17,7 +17,7 @@ function delay(ms: number): Promise<void> {
 suite('Quick Pick surface', () => {
   // launchArgs: ['--disable-extensions'] (below, in runTest.ts) disables
   // anthropic.claude-code, and our extensionDependencies makes activation of THIS
-  // extension depend on that one — so sessionFinder.search is never actually
+  // extension depend on that one — so sessionOrganizer.search is never actually
   // registered in this test run. That is correct product behaviour (a hard
   // dependency really is required), just unobservable under --disable-extensions.
   // Assert on the installed manifest instead, which VS Code loads regardless of
@@ -29,8 +29,8 @@ suite('Quick Pick surface', () => {
     const manifest = ext!.packageJSON;
     const commands: Array<{ command: string }> = manifest.contributes?.commands ?? [];
     assert.ok(
-      commands.some(c => c.command === 'sessionFinder.search'),
-      'manifest must contribute the sessionFinder.search command',
+      commands.some(c => c.command === 'sessionOrganizer.search'),
+      'manifest must contribute the sessionOrganizer.search command',
     );
     assert.ok(
       (manifest.extensionDependencies ?? []).includes('anthropic.claude-code'),

@@ -82,12 +82,12 @@ export async function confirmNotRunningElsewhere(sessionId: string, where: OpenW
       'resume keeps only one branch: the other one\'s work disappears from the conversation.\n\n' +
       'Switch to where it runs instead, or read it in the Session View, which starts nothing.' },
     VIEW_ACTION, ANYWAY_ACTION);
-  if (choice === VIEW_ACTION) await vscode.commands.executeCommand('sessionFinder.openSessionView', sessionId);
+  if (choice === VIEW_ACTION) await vscode.commands.executeCommand('sessionOrganizer.openSessionView', sessionId);
   if (choice === ANYWAY_ACTION) log?.warn(`open ${sessionId}: opened anyway`);
   return choice === ANYWAY_ACTION;
 }
 
-const RIGHT_PANEL_NOTICE = 'sessionFinder.rightPanelNoticeShown';
+const RIGHT_PANEL_NOTICE = 'sessionOrganizer.rightPanelNoticeShown';
 
 /** Spec §11: opening in the right panel also changes Claude Code's default location. Say so once. */
 async function noticeRightPanelOnce(ctx: vscode.ExtensionContext): Promise<void> {

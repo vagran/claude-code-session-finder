@@ -11,7 +11,7 @@ import type { SessionMeta } from '../core/types.js';
 import { LiveHost, readThresholds } from '../live-host.js';
 import { executePlan, openTranscript } from '../open.js';
 
-export const VIEW_TYPE = 'sessionFinder.sessionView';
+export const VIEW_TYPE = 'sessionOrganizer.sessionView';
 const PAGE = 40;
 const TICK_MS = 2_000;
 

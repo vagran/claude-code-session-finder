@@ -3,7 +3,7 @@ import { ringingFirst, stateIcon, statusText, type Snapshot } from '../core/rows
 import { devBuildLabel } from '../core/dev-build.js';
 import { mdEscape } from './statusbar-escape.js';
 
-export const SHOW_SESSIONS = 'sessionFinder.showSessions';
+export const SHOW_SESSIONS = 'sessionOrganizer.showSessions';
 
 /**
  * Spec §9.2: running count, and the bell — the sessions whose ball is in your court and that you have
@@ -11,7 +11,7 @@ export const SHOW_SESSIONS = 'sessionFinder.showSessions';
  * dev build, which names itself in every window. Click runs SHOW_SESSIONS.
  */
 export function createStatusBar(ctx: vscode.ExtensionContext): { update(s: Snapshot): void } {
-  const item = vscode.window.createStatusBarItem('sessionFinder.live', vscode.StatusBarAlignment.Left, 50);
+  const item = vscode.window.createStatusBarItem('sessionOrganizer.live', vscode.StatusBarAlignment.Left, 50);
   item.name = 'Claude Code Sessions';
   item.command = SHOW_SESSIONS;
   ctx.subscriptions.push(item);

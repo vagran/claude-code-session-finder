@@ -13,24 +13,24 @@ suite('Live sessions manifest', () => {
 
   test('contributes the sessions view container and its webview view', () => {
     const c = manifest().contributes;
-    assert.ok(c.viewsContainers?.activitybar?.some((v: { id: string }) => v.id === 'sessionFinder'), 'container sessionFinder');
-    const views: Array<{ id: string; type: string }> = c.views?.sessionFinder ?? [];
-    assert.ok(views.some(v => v.id === 'sessionFinder.live' && v.type === 'webview'), 'webview view sessionFinder.live');
+    assert.ok(c.viewsContainers?.activitybar?.some((v: { id: string }) => v.id === 'sessionOrganizer'), 'container sessionOrganizer');
+    const views: Array<{ id: string; type: string }> = c.views?.sessionOrganizer ?? [];
+    assert.ok(views.some(v => v.id === 'sessionOrganizer.live' && v.type === 'webview'), 'webview view sessionOrganizer.live');
   });
 
   test('contributes the session commands', () => {
     const ids = (manifest().contributes.commands as Array<{ command: string }>).map(c => c.command);
-    for (const id of ['sessionFinder.search', 'sessionFinder.showSessions', 'sessionFinder.refresh',
-                      'sessionFinder.openInTab', 'sessionFinder.openInRightPanel']) {
+    for (const id of ['sessionOrganizer.search', 'sessionOrganizer.showSessions', 'sessionOrganizer.refresh',
+                      'sessionOrganizer.openInTab', 'sessionOrganizer.openInRightPanel']) {
       assert.ok(ids.includes(id), `missing command ${id}`);
     }
   });
 
   test('contributes the live-state settings with the spec defaults', () => {
     const p = manifest().contributes.configuration.properties;
-    assert.strictEqual(p['sessionFinder.activeWindow'].default, '4h');
-    assert.strictEqual(p['sessionFinder.toolQuietSeconds'].default, 60);
-    assert.strictEqual(p['sessionFinder.stalledMinutes'].default, 15);
+    assert.strictEqual(p['sessionOrganizer.activeWindow'].default, '4h');
+    assert.strictEqual(p['sessionOrganizer.toolQuietSeconds'].default, 60);
+    assert.strictEqual(p['sessionOrganizer.stalledMinutes'].default, 15);
   });
 
   test('keeps the activation and dependency contract', () => {

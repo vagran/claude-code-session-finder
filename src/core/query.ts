@@ -12,7 +12,7 @@ const SPEC = /^(\d+)([hdwm])?$/;
 
 /**
  * Duration a window spec denotes ("4h", "2d", "1w", bare digits = days), or `fallbackMs`
- * when the spec is unparseable or "all". Used for sessionFinder.activeWindow (spec L6).
+ * when the spec is unparseable or "all". Used for sessionOrganizer.activeWindow (spec L6).
  */
 export function durationMs(spec: string, fallbackMs: number): number {
   const m = SPEC.exec(spec.trim().toLowerCase());

@@ -62,20 +62,20 @@ you reply or close it.
 
 Hover a glyph for the sentence behind it. Rows are ordered by how much they need you: question, permission, done, interrupted, running, stalled — then the sessions kept only by an open tab, youngest first. Within a group a row stays where it is while Claude works, so nothing shuffles under your pointer; a session enters its group at the top when it starts, resumes or finishes.
 
-**Cost meter.** Each active row carries a small bar with its context size: the tokens the model was given on its last turn, and therefore what every further turn costs. One absolute scale for every session, ramping green → yellow → orange → red toward `sessionFinder.contextBudget` (1M by default, where compaction lands), and pinned full in deep red past it: compact or start a new session. Hover the bar for the numbers.
+**Cost meter.** Each active row carries a small bar with its context size: the tokens the model was given on its last turn, and therefore what every further turn costs. One absolute scale for every session, ramping green → yellow → orange → red toward `sessionOrganizer.contextBudget` (1M by default, where compaction lands), and pinned full in deep red past it: compact or start a new session. Hover the bar for the numbers.
 
 State is derived from the last conversational record of each recently written
 transcript, so a session in another window, another worktree, or a terminal
-shows up too. Sessions written within `sessionFinder.activeWindow`
-(default 4 h), or open in a Claude Code tab in this window, carry a state; `sessionFinder.toolQuietSeconds` (60) and
-`sessionFinder.stalledMinutes` (15) tune the two thresholds.
+shows up too. Sessions written within `sessionOrganizer.activeWindow`
+(default 4 h), or open in a Claude Code tab in this window, carry a state; `sessionOrganizer.toolQuietSeconds` (60) and
+`sessionOrganizer.stalledMinutes` (15) tune the two thresholds.
 
 ## Browse sessions
 
 The **Sessions** view lists what is live and what is closed **for this
 workspace**: sessions from its folders, their git repository and every worktree
 of it. Sessions from other projects stay out until you press the filter button
-in the view title (or `sessionFinder.sidebarScope`). The status bar and the
+in the view title (or `sessionOrganizer.sidebarScope`). The status bar and the
 search picker always cover every project.
 
 The row for the session in your active editor tab is highlighted, and follows
@@ -131,7 +131,7 @@ box or the `Ctrl+Alt+S` picker — matches what you and Claude actually **said**
 | `paste image` | sessions containing both words |
 | `"paste image"` | that exact phrase |
 | `pr:1234` | the session that opened that PR — exact, so the recency window is ignored |
-| `since:30d`, `since:all` | narrow or widen the default 60-day window (`sessionFinder.defaultWindow`) |
+| `since:30d`, `since:all` | narrow or widen the default 60-day window (`sessionOrganizer.defaultWindow`) |
 | `!"npm run build"` | also search tool calls and results, including subagents — slower |
 
 A `!` search matches whole transcripts, so quote a phrase unless you really do
@@ -180,11 +180,11 @@ agents pill shows the same tree live; this view is for the ones you don't.
 
 | Setting | Default | |
 |---|---|---|
-| `sessionFinder.defaultWindow` | `60d` | recency window for searches; `pr:` ignores it |
-| `sessionFinder.sidebarScope` | `workspace` | `workspace`: this workspace's folders, repo and worktrees · `all`: every project. The view's filter button overrides it per workspace |
-| `sessionFinder.activeWindow` | `4h` | sessions written within this are Active and carry a state |
-| `sessionFinder.toolQuietSeconds` | `60` | waiting on a tool longer than this shows 🔔, unless (Linux) its command is still running |
-| `sessionFinder.stalledMinutes` | `15` | silence longer than this mid-turn shows ⚠ |
+| `sessionOrganizer.defaultWindow` | `60d` | recency window for searches; `pr:` ignores it |
+| `sessionOrganizer.sidebarScope` | `workspace` | `workspace`: this workspace's folders, repo and worktrees · `all`: every project. The view's filter button overrides it per workspace |
+| `sessionOrganizer.activeWindow` | `4h` | sessions written within this are Active and carry a state |
+| `sessionOrganizer.toolQuietSeconds` | `60` | waiting on a tool longer than this shows 🔔, unless (Linux) its command is still running |
+| `sessionOrganizer.stalledMinutes` | `15` | silence longer than this mid-turn shows ⚠ |
 
 ## Privacy
 

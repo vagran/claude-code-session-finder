@@ -57,27 +57,27 @@ export function activate(ctx: vscode.ExtensionContext): void {
     // which tab WAS active).
     vscode.window.tabGroups.onDidChangeTabs(e => { live.noteClosedTabs(e.closed); live.noteActiveTab(); }),
     vscode.window.tabGroups.onDidChangeTabGroups(() => live.noteActiveTab()),
-    vscode.commands.registerCommand('sessionFinder.showAllProjects', () => host.toggleScope()),
-    vscode.commands.registerCommand('sessionFinder.showThisWorkspace', () => host.toggleScope()),
-    vscode.commands.registerCommand('sessionFinder.filterSessions', async (q?: string) => {
+    vscode.commands.registerCommand('sessionOrganizer.showAllProjects', () => host.toggleScope()),
+    vscode.commands.registerCommand('sessionOrganizer.showThisWorkspace', () => host.toggleScope()),
+    vscode.commands.registerCommand('sessionOrganizer.filterSessions', async (q?: string) => {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       live.focusFilter(typeof q === 'string' ? q : undefined);
     }),
     vscode.commands.registerCommand(SHOW_SESSIONS, () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
-    vscode.commands.registerCommand('sessionFinder.refresh', () => Promise.all([host.sweepNow(), host.refreshIndex()])),
-    vscode.commands.registerCommand('sessionFinder.openInTab', (id?: string) => openFromPalette(ctx, host, id, 'tab')),
-    vscode.commands.registerCommand('sessionFinder.openInRightPanel', (id?: string) => openFromPalette(ctx, host, id, 'right')),
-    vscode.commands.registerCommand('sessionFinder.closeSession', async (id?: string) => {
+    vscode.commands.registerCommand('sessionOrganizer.refresh', () => Promise.all([host.sweepNow(), host.refreshIndex()])),
+    vscode.commands.registerCommand('sessionOrganizer.openInTab', (id?: string) => openFromPalette(ctx, host, id, 'tab')),
+    vscode.commands.registerCommand('sessionOrganizer.openInRightPanel', (id?: string) => openFromPalette(ctx, host, id, 'right')),
+    vscode.commands.registerCommand('sessionOrganizer.closeSession', async (id?: string) => {
       const sessionId = id ?? await pickActive(host, 'Close which session?');
       if (sessionId) await live.closeSession(sessionId);
     }),
   );
   ctx.subscriptions.push(
-    vscode.commands.registerCommand('sessionFinder.search', () => showSearchQuickPick(ctx, host.liveness)),
+    vscode.commands.registerCommand('sessionOrganizer.search', () => showSearchQuickPick(ctx, host.liveness)),
   );
 
   // Opened from a Sessions row, a Quick Pick button, or the palette.
-  ctx.subscriptions.push(vscode.commands.registerCommand('sessionFinder.openSessionView', async (id?: string) => {
+  ctx.subscriptions.push(vscode.commands.registerCommand('sessionOrganizer.openSessionView', async (id?: string) => {
     const sessionId = id ?? await pickSessionId(host);
     if (sessionId) await sessions.open(sessionId);
   }));

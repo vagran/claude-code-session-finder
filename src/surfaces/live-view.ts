@@ -10,7 +10,7 @@ import { planOpen } from '../core/resolve.js';
 import type { OpenWhere } from '../core/open-args.js';
 import { executePlan, folderUri, openTranscript } from '../open.js';
 
-export const VIEW_ID = 'sessionFinder.live';
+export const VIEW_ID = 'sessionOrganizer.live';
 /** The webview type of a Claude Code session tab (`vscode.TabInputWebview.viewType` contains it). */
 const CLAUDE_TAB = 'claudeVSCodePanel';
 
@@ -289,7 +289,7 @@ export class LiveViewProvider implements vscode.WebviewViewProvider {
 
   private post(snapshot: Snapshot): void {
     if (!this.view) return;
-    const cfg = vscode.workspace.getConfiguration('sessionFinder');
+    const cfg = vscode.workspace.getConfiguration('sessionOrganizer');
     const activeWindow = cfg.get<string>('activeWindow', '4h');
     const contextBudget = Math.max(1_000, cfg.get<number>('contextBudget', 1_000_000));
     this.updatePins();
@@ -302,7 +302,7 @@ export class LiveViewProvider implements vscode.WebviewViewProvider {
   private postResults(q: string): void {
     if (!this.view) return;
     const index = this.host.searchIndex;
-    const defaultWindow = vscode.workspace.getConfiguration('sessionFinder').get<string>('defaultWindow', '60d');
+    const defaultWindow = vscode.workspace.getConfiguration('sessionOrganizer').get<string>('defaultWindow', '60d');
     const parsed = parseQuery(q, defaultWindow, Date.now());
     const titles = this.firstPromptsCached();
     const rows = index && !parsed.deep && q.trim()
@@ -319,13 +319,13 @@ export class LiveViewProvider implements vscode.WebviewViewProvider {
       }
       if (raw.type === 'filter') { this.postResults(raw.q); return; }
       if (raw.type === 'toggleScope') { await this.host.toggleScope(); return; }
-      if (raw.type === 'search') { await vscode.commands.executeCommand('sessionFinder.search'); return; }
+      if (raw.type === 'search') { await vscode.commands.executeCommand('sessionOrganizer.search'); return; }
       if (raw.type === 'copyLink') {
         await vscode.env.clipboard.writeText(`vscode://anthropic.claude-code/open?session=${raw.sessionId}`);
         vscode.window.setStatusBarMessage('Deep link copied', 3000);
         return;
       }
-      if (raw.type === 'view') { await vscode.commands.executeCommand('sessionFinder.openSessionView', raw.sessionId); return; }
+      if (raw.type === 'view') { await vscode.commands.executeCommand('sessionOrganizer.openSessionView', raw.sessionId); return; }
       if (raw.type === 'close') { await this.closeSession(raw.sessionId); return; }
       const m = this.host.session(raw.sessionId);
       if (!m) { vscode.window.showWarningMessage('That session is not in the index yet — try again in a moment.'); return; }

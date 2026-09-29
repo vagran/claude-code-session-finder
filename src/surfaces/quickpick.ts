@@ -56,7 +56,7 @@ export async function showSearchQuickPick(
   liveness: ReadonlyMap<string, Liveness> = new Map(),
 ): Promise<void> {
   const cacheFile = join(ctx.globalStorageUri.fsPath, 'index.json');
-  const defaultWindow = vscode.workspace.getConfiguration('sessionFinder').get<string>('defaultWindow', '60d');
+  const defaultWindow = vscode.workspace.getConfiguration('sessionOrganizer').get<string>('defaultWindow', '60d');
 
   // Monotonic token: a slow deep scan that resolves after a newer keystroke's render must
   // neither clobber the newer items NOR keep running. Declared before qp.show() so the
@@ -148,7 +148,7 @@ export async function showSearchQuickPick(
       const tooltip = e.button.tooltip ?? '';
       if (tooltip === OPEN_VIEW) {
         qp.hide();
-        await vscode.commands.executeCommand('sessionFinder.openSessionView', m.sessionId);
+        await vscode.commands.executeCommand('sessionOrganizer.openSessionView', m.sessionId);
       } else if (tooltip === COPY_LINK) {
         await vscode.env.clipboard.writeText(`vscode://anthropic.claude-code/open?session=${m.sessionId}`);
         vscode.window.setStatusBarMessage('Deep link copied', 3000);

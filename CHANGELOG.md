@@ -6,6 +6,10 @@ First release of the fork of
 [shobhitg/claude-code-session-finder](https://github.com/shobhitg/claude-code-session-finder),
 as `vagran.claude-code-session-organizer`. Its history continues below from 0.8.0.
 
+Settings, commands and views are now `sessionOrganizer.*` (were `sessionFinder.*`), and the
+settings section is **Claude Code Session Organizer**. A setting set under the old name is
+not carried over: set it again under the new one.
+
 **A permission prompt rings at once.** A pending tool call rang only after 60
 quiet seconds, because the transcript cannot tell a prompt from a tool that is
 still running. Claude Code's process registry can: it says `waiting` while it

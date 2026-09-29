@@ -34,60 +34,60 @@
   "contributes": {
     "commands": [
       {
-        "command": "sessionFinder.search",
+        "command": "sessionOrganizer.search",
         "title": "Claude: Search Sessions",
         "icon": "$(search)"
       },
       {
-        "command": "sessionFinder.filterSessions",
+        "command": "sessionOrganizer.filterSessions",
         "title": "Claude: Filter Sessions",
         "icon": "$(search)"
       },
       {
-        "command": "sessionFinder.showAllProjects",
+        "command": "sessionOrganizer.showAllProjects",
         "title": "Claude: Sessions — Show All Projects",
         "icon": "$(filter-filled)"
       },
       {
-        "command": "sessionFinder.showThisWorkspace",
+        "command": "sessionOrganizer.showThisWorkspace",
         "title": "Claude: Sessions — Show This Workspace Only",
         "icon": "$(filter)"
       },
       {
-        "command": "sessionFinder.showSessions",
+        "command": "sessionOrganizer.showSessions",
         "title": "Claude: Show Sessions"
       },
       {
-        "command": "sessionFinder.refresh",
+        "command": "sessionOrganizer.refresh",
         "title": "Claude: Refresh Sessions",
         "icon": "$(refresh)"
       },
       {
-        "command": "sessionFinder.openInTab",
+        "command": "sessionOrganizer.openInTab",
         "title": "Claude: Open Session in Tab"
       },
       {
-        "command": "sessionFinder.openInRightPanel",
+        "command": "sessionOrganizer.openInRightPanel",
         "title": "Claude: Open Session in Right Panel"
       },
       {
-        "command": "sessionFinder.openSessionView",
+        "command": "sessionOrganizer.openSessionView",
         "title": "Claude: Open Session View"
       },
       {
-        "command": "sessionFinder.closeSession",
+        "command": "sessionOrganizer.closeSession",
         "title": "Claude: Close Session"
       }
     ],
     "configuration": {
-      "title": "Claude Code Sessions",
+      "title": "Claude Code Session Organizer",
       "properties": {
-        "sessionFinder.defaultWindow": {
+        "sessionOrganizer.defaultWindow": {
           "type": "string",
           "default": "60d",
           "description": "Default recency window for searches, e.g. 30d, 60d, all. Exact-identifier queries such as pr:123 ignore it entirely. Widen any search inline with since:all."
         },
-        "sessionFinder.sidebarScope": {
+        "sessionOrganizer.sidebarScope": {
           "type": "string",
           "enum": ["workspace", "all"],
           "default": "workspace",
@@ -97,25 +97,25 @@
           ],
           "description": "Which sessions the Sessions view lists. The filter button in the view toggles it per workspace; the status bar and the search picker always cover every project."
         },
-        "sessionFinder.contextBudget": {
+        "sessionOrganizer.contextBudget": {
           "type": "number",
           "default": 1000000,
           "minimum": 1000,
           "description": "Tokens of context at which a session's cost meter reads full (deep red). Set it to where Claude Code compacts for your models; the meter ramps green → yellow → orange → red toward it."
         },
-        "sessionFinder.activeWindow": {
+        "sessionOrganizer.activeWindow": {
           "type": "string",
           "default": "4h",
           "pattern": "^\\s*\\d+\\s*[hdwm]?\\s*$",
           "description": "Sessions written within this window, or open in a Claude Code tab in this window, are ACTIVE and show a live state (running / needs you). Examples: 2h, 8h, 1d. A session kept there only by its tab wears a tag saying how long it has been quiet (\"> 19 h\") so you can close it yourself; everything else, and any session you close from the view, is listed under Closed."
         },
-        "sessionFinder.toolQuietSeconds": {
+        "sessionOrganizer.toolQuietSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 5,
           "description": "A session that has been waiting on a tool call for longer than this is shown as \"waiting on a tool or a permission prompt\". On Linux a command that is still running keeps the spinner however long it runs; elsewhere, raise this if your tests or builds run long."
         },
-        "sessionFinder.stalledMinutes": {
+        "sessionOrganizer.stalledMinutes": {
           "type": "number",
           "default": 15,
           "minimum": 1,
@@ -126,17 +126,17 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "sessionFinder",
+          "id": "sessionOrganizer",
           "title": "Claude Code Sessions",
           "icon": "resources/sessions.svg"
         }
       ]
     },
     "views": {
-      "sessionFinder": [
+      "sessionOrganizer": [
         {
           "type": "webview",
-          "id": "sessionFinder.live",
+          "id": "sessionOrganizer.live",
           "name": "Sessions",
           "contextualTitle": "Claude Code Sessions",
           "icon": "resources/sessions.svg"
@@ -146,30 +146,30 @@
     "menus": {
       "view/title": [
         {
-          "command": "sessionFinder.filterSessions",
-          "when": "view == sessionFinder.live",
+          "command": "sessionOrganizer.filterSessions",
+          "when": "view == sessionOrganizer.live",
           "group": "navigation@1"
         },
         {
-          "command": "sessionFinder.showAllProjects",
-          "when": "view == sessionFinder.live && sessionFinder.scope == workspace",
+          "command": "sessionOrganizer.showAllProjects",
+          "when": "view == sessionOrganizer.live && sessionOrganizer.scope == workspace",
           "group": "navigation@2"
         },
         {
-          "command": "sessionFinder.showThisWorkspace",
-          "when": "view == sessionFinder.live && sessionFinder.scope == all",
+          "command": "sessionOrganizer.showThisWorkspace",
+          "when": "view == sessionOrganizer.live && sessionOrganizer.scope == all",
           "group": "navigation@2"
         },
         {
-          "command": "sessionFinder.refresh",
-          "when": "view == sessionFinder.live",
+          "command": "sessionOrganizer.refresh",
+          "when": "view == sessionOrganizer.live",
           "group": "navigation@3"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "sessionFinder.search",
+        "command": "sessionOrganizer.search",
         "key": "ctrl+alt+s",
         "mac": "cmd+alt+s"
       }

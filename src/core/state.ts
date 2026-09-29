@@ -118,20 +118,26 @@ export const classifyTail = (text: string): TailVerdict => readTailInfo(text).ve
  * Spec §7 table. `turn-ended` ignores quiet time on purpose. `unknown` — a tail with nothing
  * conversational, which a written-moments-ago file can still have — is read like `awaiting-model`:
  * recency decided the session is ACTIVE, and the verdict only refines how it shows.
- * `toolRunning`: the pending tool call's command is running (processes.ts toolRunning). A long
- * command is work, not a permission prompt, so it keeps the spinner past the quiet threshold.
- * `background`: the session's background tasks are running. A finished turn is then a pause in work
- * that goes on — each task event starts a turn of its own — so it is not your turn: it shows as
- * running, in the background, and does not ring.
+ * `p`, what the process table adds (processes.ts), for the two verdicts the transcript cannot settle:
+ *  - a tool call with no result: `status` is Claude Code's own word in its process registry —
+ *    `waiting` while it shows a permission prompt, so that rings at once, and `busy` while the tool
+ *    runs, so that keeps the spinner however long it takes. Without a status, `toolRunning` (a child
+ *    process started with the call) keeps it, and failing both the quiet rule decides.
+ *  - a finished turn: `background` — its background tasks run on, and each event starts a turn of
+ *    its own. A pause in work that goes on is not your turn: running, in the background, no bell.
  */
+export interface ProcFacts { status?: string; toolRunning?: boolean; background?: boolean }
+
 export function resolveState(
-  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS, toolRunning = false, background = false,
+  verdict: TailVerdict, quietMs: number, t: Thresholds = DEFAULT_THRESHOLDS, p: ProcFacts = {},
 ): LiveState {
   switch (verdict) {
-    case 'turn-ended':     return background ? { kind: 'running', background: true } : { kind: 'attention', reason: 'your-turn' };
+    case 'turn-ended':     return p.background ? { kind: 'running', background: true } : { kind: 'attention', reason: 'your-turn' };
     case 'awaiting-answer': return { kind: 'attention', reason: 'question' };
     case 'interrupted':    return { kind: 'attention', reason: 'interrupted' };
-    case 'awaiting-tool':  return quietMs < t.toolQuietMs || toolRunning ? { kind: 'running' } : { kind: 'attention', reason: 'tool-or-permission' };
+    case 'awaiting-tool':
+      if (p.status === 'waiting') return { kind: 'attention', reason: 'tool-or-permission' };
+      return p.status === 'busy' || p.toolRunning || quietMs < t.toolQuietMs ? { kind: 'running' } : { kind: 'attention', reason: 'tool-or-permission' };
     case 'awaiting-model':
     case 'unknown':        return quietMs < t.stalledMs   ? { kind: 'running' } : { kind: 'attention', reason: 'stalled' };
   }

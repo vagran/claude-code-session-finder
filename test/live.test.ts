@@ -237,9 +237,9 @@ describe('LivenessTracker — a long tool call', () => {
       '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5 * MIN },
       '/p/-w/b.jsonl': { verdict: 'turn-ended', lastTs: t0 - 5 * MIN },
       '/p/-w/c.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 10_000 },
-    }, t0, { processes: async () => ({ toolRunning: (id, since) => { asked.push([id, since]); return running; }, backgroundTasks: () => 0 }) });
+    }, t0, { processes: async () => ({ toolRunning: (id, since) => { asked.push([id, since]); return running; }, backgroundTasks: () => 0, status: () => undefined }) });
     await h.tracker.sweep();
-    expect(asked).toEqual([['a', t0 - 5 * MIN]]);          // since the tool_use; b is done (its background asked instead), c is not quiet yet
+    expect(asked).toEqual([['a', t0 - 5 * MIN], ['c', t0 - 10_000]]);   // since each tool_use; b is done (its background is asked instead)
     expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'running' });
     running = false;                                        // the command ended, or it was a permission prompt
     await h.tracker.tick();
@@ -256,7 +256,7 @@ describe('LivenessTracker — a long tool call', () => {
 
 describe('LivenessTracker — background tasks between turns', () => {
   const t0 = 100 * H;
-  const snap = (bg: Record<string, number>) => async () => ({ toolRunning: () => false, backgroundTasks: (id: string) => bg[id] ?? 0 });
+  const snap = (bg: Record<string, number>) => async () => ({ toolRunning: () => false, backgroundTasks: (id: string) => bg[id] ?? 0, status: () => undefined });
   it('a finished turn with background tasks running is running, in the background — not your turn', async () => {
     const bg: Record<string, number> = { a: 2 };
     const h = harness([main('a', t0 - 2 * MIN), main('b', t0 - 2 * MIN)], {
@@ -278,5 +278,20 @@ describe('LivenessTracker — background tasks between turns', () => {
       { processes: async () => { reads++; return null; } });
     await h.tracker.sweep();
     expect(reads).toBe(0);
+  });
+});
+
+describe('LivenessTracker — the registry status', () => {
+  it('a permission prompt rings at once, before the quiet threshold', async () => {
+    const t0 = 100 * H;
+    let status = 'waiting';
+    const h = harness([main('a', t0 - 5_000)], { '/p/-w/a.jsonl': { verdict: 'awaiting-tool', lastTs: t0 - 5_000 } }, t0,
+      { processes: async () => ({ toolRunning: () => false, backgroundTasks: () => 0, status: () => status }) });
+    await h.tracker.sweep();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'attention', reason: 'tool-or-permission' });
+    status = 'busy';                                          // you allowed it; the tool runs
+    h.advance(10 * MIN);
+    await h.tracker.tick();
+    expect(h.tracker.liveness.get('a')!.state).toEqual({ kind: 'running' });
   });
 });

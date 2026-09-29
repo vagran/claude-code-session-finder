@@ -1,6 +1,6 @@
 import { stat as fsStat } from 'node:fs/promises';
 import { discover as fsDiscover, defaultRoot, type SourceFile } from './discover.js';
-import { effectiveMtime, pickMainFile, resolveState, DEFAULT_THRESHOLDS, type Liveness, type TailInfo, type TailVerdict, type Thresholds } from './state.js';
+import { effectiveMtime, pickMainFile, resolveState, DEFAULT_THRESHOLDS, type Liveness, type ProcFacts, type TailInfo, type TailVerdict, type Thresholds } from './state.js';
 import { readTailInfoFrom as fsReadTailInfo } from './tail-io.js';
 import { readProcSnapshot, type ProcSnapshot } from './processes.js';
 
@@ -33,10 +33,8 @@ interface Tracked {
   /** `${mtimeMs}:${size}` of `main` when its tail was last read — the same key cache.ts uses. */
   key: string;
   info: TailInfo;
-  /** set by refreshTools() while the verdict is awaiting-tool past the quiet threshold */
-  toolRunning?: boolean;
-  /** set by refreshTools() while the verdict is turn-ended: its background tasks are running */
-  background?: boolean;
+  /** set by refreshTools() while the verdict is awaiting-tool or turn-ended: what the process table says */
+  proc?: ProcFacts;
 }
 
 const toInfo = (v: TailVerdict | TailInfo): TailInfo => typeof v === 'string' ? { verdict: v } : v;
@@ -135,19 +133,20 @@ export class LivenessTracker {
   }
 
   /**
-   * Two cases need the process table, because the transcript reads the same either way: a tool call
-   * waiting past the quiet threshold (a long command, or a permission prompt?) and a finished turn
-   * (your turn, or a pause while background tasks run?). The table is read once, only when some
-   * session is in one of them.
+   * Two verdicts need the process table, because the transcript reads the same either way: a tool call
+   * with no result (running, or a permission prompt?) and a finished turn (your turn, or a pause while
+   * background tasks run?). The table is read once, only when some session has one of them.
    */
   private async refreshTools(): Promise<void> {
-    const now = this.deps.now();
-    const waiting = (t: Tracked) => t.info.verdict === 'awaiting-tool' && now - activityMs(t) >= this.thresholds.toolQuietMs;
-    const asks = [...this.tracked.values()].filter(t => waiting(t) || t.info.verdict === 'turn-ended');
-    const snap = asks.length && this.deps.processes ? await this.deps.processes().catch(() => null) : null;
+    const asks = (t: Tracked) => t.info.verdict === 'awaiting-tool' || t.info.verdict === 'turn-ended';
+    const any = [...this.tracked.values()].some(asks);
+    const snap = any && this.deps.processes ? await this.deps.processes().catch(() => null) : null;
     for (const t of this.tracked.values()) {
-      t.toolRunning = snap && waiting(t) ? snap.toolRunning(t.sessionId, t.info.lastTs ?? t.main.mtimeMs) : undefined;
-      t.background = snap && t.info.verdict === 'turn-ended' ? snap.backgroundTasks(t.sessionId) > 0 : undefined;
+      if (!snap || !asks(t)) { t.proc = undefined; continue; }
+      const status = snap.status(t.sessionId);
+      t.proc = t.info.verdict === 'awaiting-tool'
+        ? { ...(status ? { status } : {}), toolRunning: snap.toolRunning(t.sessionId, t.info.lastTs ?? t.main.mtimeMs) }
+        : { background: snap.backgroundTasks(t.sessionId) > 0 };
     }
   }
 
@@ -178,7 +177,7 @@ export class LivenessTracker {
       const lastWriteMs = activityMs(t);
       const pastWindow = now - lastWriteMs > this.opts.activeWindowMs;
       if (pastWindow && !this.pinned.has(t.sessionId)) continue;
-      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds, t.toolRunning === true, t.background === true);
+      const state = resolveState(t.info.verdict, now - lastWriteMs, this.thresholds, t.proc);
       const l: Liveness = { sessionId: t.sessionId, verdict: t.info.verdict, state, lastWriteMs };
       if (pastWindow) l.parked = true;
       if (t.info.contextTokens !== undefined) l.contextTokens = t.info.contextTokens;

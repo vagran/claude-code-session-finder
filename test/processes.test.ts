@@ -204,3 +204,18 @@ describe('readProcSnapshot — background tasks', () => {
     } finally { child.kill(); }
   });
 });
+
+describe('readProcSnapshot — status', () => {
+  const io = (live: Array<{ pid: number; sessionId: string; status?: string }>): ToolRunningIo =>
+    ({ live: async () => live, children: () => [], info: () => ({ alive: true }), cmdline: () => '', bootMs: () => 0 });
+  it("reports the registry's status, and with two processes the one that needs you", async () => {
+    const snap = (await readProcSnapshot(io([
+      { pid: 1, sessionId: 's1', status: 'idle' }, { pid: 2, sessionId: 's1', status: 'waiting' },
+      { pid: 3, sessionId: 's2', status: 'busy' }, { pid: 4, sessionId: 's3' },
+    ])))!;
+    expect(snap.status('s1')).toBe('waiting');
+    expect(snap.status('s2')).toBe('busy');
+    expect(snap.status('s3')).toBeUndefined();
+    expect(snap.status('nobody')).toBeUndefined();
+  });
+});

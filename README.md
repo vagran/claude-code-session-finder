@@ -46,7 +46,7 @@ Sessions view and in search results:
 | `⟳` spinning | running | the model is working — including long answers, which write nothing for a while |
 | `↻` turning | background | the turn ended, but its background tasks (`run_in_background`, a Monitor) run on and will wake Claude — not your turn yet; Linux only |
 | `?` | asks you | Claude asked a question (`AskUserQuestion`) or has a plan for you to approve, and is waiting for the answer |
-| `🔔` | needs you | waiting on a tool call for a while: usually a **permission prompt**. On Linux a command still running keeps the spinner, however long it takes |
+| `🔔` | needs you | a **permission prompt**: at once where Claude Code's process registry says so (`waiting`), otherwise after a tool call has been quiet for a while. A tool still running keeps the spinner, however long it takes |
 | `💬` | done | Claude finished its turn and is waiting for you |
 | `⊘` | interrupted | you stopped it (`Esc`); nothing is running until you type again |
 | `⚠` | stalled | nothing written for 15+ minutes mid-turn; probably abandoned |

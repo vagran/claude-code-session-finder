@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**A permission prompt rings at once.** A pending tool call rang only after 60
+quiet seconds, because the transcript cannot tell a prompt from a tool that is
+still running. Claude Code's process registry can: it says `waiting` while it
+shows a permission prompt and `busy` while the tool runs. A pending tool call now
+rings as soon as the registry says `waiting`, and keeps the spinner for as long as
+it says `busy`, which covers the tools that start no process (an MCP call, a web
+fetch). Without a registry status, the child-process check and then the quiet
+rule decide, as before.
+
 **A session working in the background is not "your turn".** A session that
 starts a long test run in the background and a Monitor on its output ends its
 turn after every event ("Row 9 passes. Row 10 is next."), so it read as done and

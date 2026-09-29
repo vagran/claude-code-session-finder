@@ -161,6 +161,12 @@ export interface ProcSnapshot {
    * Bash tool command is wrapped in: `zsh -c source ~/.claude/shell-snapshots/snapshot-….sh …`.
    */
   backgroundTasks(sessionId: string): number;
+  /**
+   * The registry's `status` for the session's process: `idle`, `busy`, or `waiting` — which Claude
+   * Code sets while it shows a permission prompt. With several processes on one session, the one that
+   * needs you speaks first: waiting, then busy.
+   */
+  status(sessionId: string): string | undefined;
 }
 
 const BASH_TOOL_SHELL = /\/\.claude\/shell-snapshots\/snapshot-/;
@@ -178,6 +184,10 @@ export async function readProcSnapshot(io: ToolRunningIo = procIo): Promise<Proc
       return start !== undefined && startedAfter(start, boot, since);
     }),
     backgroundTasks: id => (kids.get(id) ?? []).filter(c => BASH_TOOL_SHELL.test(io.cmdline(c))).length,
+    status: id => {
+      const all = live.filter(p => p.sessionId === id).map(p => p.status).filter((s): s is string => !!s);
+      return all.find(s => s === 'waiting') ?? all.find(s => s === 'busy') ?? all[0];
+    },
   };
 }
 
